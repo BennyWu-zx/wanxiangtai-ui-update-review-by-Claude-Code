@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>万相台看板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --sidebar:#12172a; --sidebar-text:#9aa0bd; --sidebar-active:#1e2846; --gold:#dba33c;
+    --bg:#f7f6f2; --card:#ffffff; --line:#e8e6df; --text:#1c1e26; --sub:#767a8a;
+    --red:#d1483f; --green:#1f9e6d; --amberbg:#fbf2df;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,'Segoe UI',sans-serif;}
+  .shell{display:grid; grid-template-columns:230px 1fr; min-height:100vh;}
+
+  .sidebar{background:var(--sidebar); color:var(--sidebar-text); padding:22px 16px;}
+  .sb-brand{display:flex; align-items:center; gap:10px; padding:0 8px 20px; margin-bottom:14px; border-bottom:1px solid #232d4d;}
+  .sb-logo{width:28px; height:28px; border-radius:7px; background:var(--gold); display:flex; align-items:center; justify-content:center; overflow:hidden;}
+  .sb-logo img{width:100%; height:100%; object-fit:contain; padding:3px; box-sizing:border-box;}
+  .sb-brand .n{font-size:13.5px; font-weight:600; color:#fff;}
+  .sb-brand .t{font-size:10.5px; color:var(--sidebar-text);}
+  .sb-group{font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:#565d7d; margin:18px 8px 8px;}
+  .sb-link{padding:9px 12px; border-radius:8px; font-size:13px; color:var(--sidebar-text); margin-bottom:2px; cursor:pointer; transition:background .15s;}
+  .sb-link:hover{background:#1a2340;}
+  .sb-link.active{background:var(--sidebar-active); color:#fff; font-weight:600; border-left:3px solid var(--gold); padding-left:9px;}
+
+  .main{padding:26px 32px; position:relative;}
+  .page{display:none;}
+  .page.active{display:block; animation:fadeSlide .28s ease;}
+  @keyframes fadeSlide{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;}
+  .topbar h1{font-size:19px; margin:0 0 4px;}
+  .topbar .meta{font-size:12px; color:var(--sub);}
+  .filters{display:flex; gap:8px;}
+  .filters span{font-size:12.5px; padding:6px 13px; border-radius:7px; background:#fff; border:1px solid var(--line); cursor:pointer; color:var(--sub); transition:.15s;}
+  .filters span.active{background:var(--text); color:#fff; border-color:var(--text);}
+
+  .kpi-row{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:18px;}
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px 16px; box-shadow:0 1px 2px rgba(20,20,10,.03); transition:transform .3s;}
+  .kpi .label{font-size:12px; color:var(--sub); margin-bottom:8px;}
+  .kpi .value{font-size:21px; font-weight:700;}
+  .kpi .delta{font-size:11.5px; margin-top:6px;}
+  .up{color:var(--red);} .down{color:var(--green);}
+
+  .grid2{display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:18px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; box-shadow:0 1px 2px rgba(20,20,10,.03); margin-bottom:16px;}
+  .card h3{margin:0 0 4px; font-size:14px; font-weight:700;}
+  .card .sub{font-size:11.5px; color:var(--sub); margin-bottom:14px;}
+  .hint{font-size:11px; color:var(--sub); margin-top:8px;}
+  canvas{max-height:230px;}
+  .click-detail{font-size:12.5px; background:#f7f6f2; border-radius:8px; padding:9px 12px; margin-top:10px; min-height:18px;}
+
+  .mover-row{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f2f1ec; font-size:13px;}
+  .mover-row:last-child{border-bottom:none;}
+
+  /* category page */
+  .toolbar{display:flex; gap:10px; margin-bottom:16px;}
+  .toolbar input{flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px;}
+  .toolbar select{border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; color:var(--sub); font-weight:600; font-size:11.5px; padding:9px 10px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none;}
+  th:hover{color:var(--text);}
+  td{padding:10px; border-bottom:1px solid #f2f1ec;}
+  tr.row{transition:background .15s;}
+  tr.row:hover{background:#fbfaf7;}
+  tr.row.highlight{background:var(--amberbg);}
+  .roi-pos{color:var(--green); font-weight:700;}
+  .roi-neg{color:var(--red); font-weight:700;}
+  .no-result{text-align:center; color:var(--sub); padding:24px; font-size:13px;}
+
+  /* rate page */
+  .hero{background:#12172a; border-radius:14px; padding:22px 26px; margin-bottom:18px; color:#fff; display:flex; justify-content:space-between; align-items:center;}
+  .hero .hl{font-size:12.5px; color:var(--sidebar-text); margin-bottom:6px;}
+  .hero .hv{font-size:32px; font-weight:800; color:var(--gold); transition:.2s;}
+  .hero .hf{font-size:11.5px; color:var(--sidebar-text); text-align:right; line-height:1.6;}
+  .ch-name{display:flex; align-items:center; gap:8px;}
+  .rate-strong{font-weight:700;}
+  .tag-note{font-size:10.5px; color:var(--sub);}
+
+  /* ai page */
+  .scope-note{font-size:12px; color:var(--sub); background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-bottom:18px;}
+  .scope-note b{color:var(--text);}
+  .thresholds{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px;}
+  .th-item label{font-size:12px; color:var(--sub); display:block; margin-bottom:6px;}
+  .th-item input{width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px;}
+  button.run{background:var(--text); color:#fff; border:none; border-radius:8px; padding:9px 18px; font-size:13px; cursor:pointer;}
+  .flag{display:flex; gap:12px; padding:12px 14px; border-radius:9px; background:var(--amberbg); margin-bottom:8px; font-size:13px; align-items:flex-start;}
+  .flag .rule-tag{font-size:10.5px; color:var(--sub); margin-top:3px;}
+  .no-flag{color:var(--sub); font-size:13px; padding:14px 0;}
+  .kb-tree{font-size:13px; line-height:2;}
+  .kb-tree-item{color:var(--text);}
+
+  /* 自动化预览 */
+  .auto-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .switch{position:relative; display:inline-block; width:40px; height:22px;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{position:absolute; cursor:pointer; inset:0; background:#d8d5cc; border-radius:22px; transition:.2s;}
+  .slider:before{position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider{background:var(--green);}
+  .switch input:checked + .slider:before{transform:translateX(18px);}
+  #autoStatusText{font-size:13px; font-weight:600;}
+  .auto-badge{font-size:11.5px; background:#f7f6f2; border:1px solid var(--line); padding:3px 10px; border-radius:20px; color:var(--sub);}
+  .auto-note{font-size:11px; color:var(--sub); margin-left:auto;}
+  .auto-log-item{display:flex; gap:10px; padding:10px 0; border-bottom:1px solid #f2f1ec; font-size:12.5px;}
+  .auto-log-item:last-child{border-bottom:none;}
+  .auto-log-time{color:var(--sub); white-space:nowrap; font-size:11.5px; min-width:64px;}
+
+  .toast{position:fixed; top:20px; right:24px; background:#12172a; color:#fff; padding:14px 18px; border-radius:10px; font-size:13px; max-width:320px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18); transform:translateX(400px); opacity:0; transition:transform .35s ease, opacity .35s ease; z-index:50;}
+  .toast.show{transform:translateX(0); opacity:1;}
+  .toast b{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="sidebar">
+    <div class="sb-brand"><div class="sb-logo"><img src="lenovo-logo.png" alt="联想 logo" onerror="this.style.display='none'; this.parentElement.style.background='#e5e2da';"></div><div><div class="n">万相台看板</div><div class="t">投放数据中心</div></div></div>
+    <div class="sb-group">经营总览</div>
+    <div class="sb-link" data-route="overview" onclick="switchPage('overview')">总览</div>
+    <div class="sb-link" data-route="datastatus" onclick="switchPage('datastatus')">数据接入状态</div>
+    <div class="sb-group">数据明细</div>
+    <div class="sb-link" data-route="history" onclick="switchPage('history')">历史数据查询(T-1)</div>
+    <div class="sb-link" data-route="category" onclick="switchPage('category')">品类明细</div>
+    <div class="sb-link" data-route="subjects" onclick="switchPage('subjects')">主体明细</div>
+    <div class="sb-link" data-route="panorama" onclick="switchPage('panorama')">全景视图</div>
+    <div class="sb-link" data-route="rate" onclick="switchPage('rate')">渠道费率</div>
+    <div class="sb-group">知识库</div>
+    <div class="sb-link" data-route="kb" onclick="switchPage('kb')">知识库 / 规则库V1.0</div>
+    <div class="sb-group">AI 辅助</div>
+    <div class="sb-link" data-route="ai" onclick="switchPage('ai')">基础策略提示</div>
+  </div>
+
+  <div class="main">
+
+    <!-- 总览 -->
+    <section class="page active" id="page-overview">
+      <div class="topbar">
+        <div>
+          <h1>今日经营总览</h1>
+          <div class="meta">数据范围 2026-07-08 ~ 2026-07-14 · 更新 2026-07-15 07:33</div>
+        </div>
+        <div class="filters" id="rangeFilters">
+          <span data-range="today">今天</span>
+          <span data-range="7d" class="active">近7天</span>
+          <span data-range="30d">近30天</span>
+          <span data-range="90d">近90天</span>
+        </div>
+      </div>
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>花费 / 总成交趋势</h3>
+          <div class="sub">点击上方日期范围按钮切换,点击图例可单独显示/隐藏某条线</div>
+          <canvas id="trendChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>推广场景花费占比</h3>
+          <div class="sub">点击环形图任意一块查看占比明细</div>
+          <canvas id="scenarioDonut"></canvas>
+          <div class="click-detail" id="donutDetail">点击图表任意区域查看详情</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>其他渠道花费(不分品类)</h3>
+        <div class="sub">直播 / 内容,单独展示,不计入品类聚合</div>
+        <div class="grid2" style="margin-bottom:0;">
+          <div>
+            <div class="mover-row"><span>直播花费</span><span>¥4.86万 · 费率 0.24%</span></div>
+            <div class="mover-row"><span>内容花费</span><span>¥3.12万 · 费率 0.15%</span></div>
+          </div>
+          <div>
+            <div class="mover-row"><span>去退销售额</span><span>¥6580万</span></div>
+            <div class="mover-row"><span>整体花费费率</span><span style="color:var(--gold); font-weight:700;">2.13%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 数据接入状态 -->
+    <section class="page" id="page-datastatus">
+      <div class="topbar">
+        <div>
+          <h1>数据接入状态</h1>
+          <div class="meta">对应团队分工里"数据"这一栏的3项任务,这里是给这些任务留的前端展示位</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>1. 万相台实时数据采集(DOM抓取/API)</h3>
+        <div class="sub">交付物:实时数据流(api) · 推进人:蔚博/齐钰</div>
+        <div class="grid2" style="margin-bottom:0;">
+          <div class="mover-row"><span>采集方式</span><span>DOM抓取 / API(待接入)</span></div>
+          <div class="mover-row"><span>测试频率要求</span><span>天度 by 半小时</span></div>
+          <div class="mover-row"><span>当前状态</span><span style="color:var(--sub);">⚪ 未接入(演示占位)</span></div>
+          <div class="mover-row"><span>最近一次半小时测试</span><span style="color:var(--sub);">—</span></div>
+        </div>
+        <div class="hint">接入后这里应该显示:最近一次采集时间、连续采集成功率、每半小时的采集记录列表(成功/失败/延迟)。</div>
+      </div>
+
+      <div class="card">
+        <h3>2. 瓴羊one · T-1历史数据打通</h3>
+        <div class="sub">交付物:T-1数据流(api) · 推进人:卓昊/政锡</div>
+        <div class="grid2" style="margin-bottom:0;">
+          <div class="mover-row"><span>数据源</span><span>瓴羊one(待接入)</span></div>
+          <div class="mover-row"><span>当前状态</span><span style="color:var(--amber, #b8860b);">🟡 前端已就位,等真实接口(见"历史数据查询"页,当前为结构一致的演示数据)</span></div>
+          <div class="mover-row"><span>对应页面</span><span>历史数据查询(T-1)</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>3. SQL / 核心指标计算逻辑</h3>
+        <div class="sub">交付物:能够接入看板核心数据的指标 · 推进人:卓昊/瑞娟</div>
+        <div class="sub" style="margin-bottom:12px;">前端这边把用到的指标口径整理成了文档,和后端SQL的定义对齐,详见"知识库"页里的"指标口径"表。</div>
+        <button class="run" onclick="switchPage('kb')">跳转到指标口径 →</button>
+      </div>
+    </section>
+
+    <!-- 历史数据查询(T-1) -->
+    <section class="page" id="page-history">
+      <div class="topbar">
+        <div>
+          <h1>历史数据查询(T-1)</h1>
+          <div class="meta">数据范围 2026-07-01 ~ 2026-07-14 · 按 日期+品类+场景 实际聚合,不做比例估算</div>
+        </div>
+      </div>
+      <div class="scope-note">
+        <b>说明</b>:这里的每日明细是演示数据(结构对应真实流水线里的 categoryScenarioRecords:日期+品类+场景 groupby+sum),
+        不是抓取的真实数据。等实时采集(DOM抓取/API)和瓴羊one的T-1数据流打通后,把这里的数据源换成真实JSON即可,查询/聚合逻辑不用改。
+      </div>
+
+      <div class="card">
+        <h3>查询条件</h3>
+        <div class="thresholds" style="grid-template-columns:repeat(4,1fr);">
+          <div class="th-item"><label>开始日期</label><input type="date" id="hStart" value="2026-07-08"></div>
+          <div class="th-item"><label>结束日期</label><input type="date" id="hEnd" value="2026-07-14"></div>
+          <div class="th-item"><label>品类</label>
+            <select id="hCat"><option value="all">全部品类</option></select>
+          </div>
+          <div class="th-item"><label>推广场景</label>
+            <select id="hScenario">
+              <option value="all">全部场景</option>
+              <option value="关键词推广">关键词推广</option>
+              <option value="货品全站推广">货品全站推广</option>
+              <option value="人群推广">人群推广</option>
+            </select>
+          </div>
+        </div>
+        <button class="run" onclick="runHistoryQuery()">查询</button>
+        <button class="run" style="background:#fff; color:var(--text); border:1px solid var(--line); margin-left:8px;" onclick="exportHistoryCsv()">导出 CSV</button>
+      </div>
+
+      <div class="kpi-row" id="hKpiRow" style="grid-template-columns:repeat(4,1fr);"></div>
+
+      <div class="card">
+        <h3>花费 / 成交趋势(按查询结果聚合)</h3>
+        <canvas id="historyChart"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>查询结果明细</h3>
+        <div class="sub" id="hResultCount"></div>
+        <table>
+          <thead><tr><th data-hkey="date">日期</th><th data-hkey="category">品类</th><th data-hkey="scenario">场景</th>
+            <th data-hkey="cost">花费</th><th data-hkey="sales">成交金额</th><th data-hkey="clicks">点击量</th>
+            <th data-hkey="impressions">展现量</th><th data-hkey="ctr">CTR</th><th data-hkey="roi">ROI</th></tr></thead>
+          <tbody id="hTbody"></tbody>
+        </table>
+        <div class="no-result" id="hNoResult" style="display:none;">没有匹配的记录</div>
+      </div>
+    </section>
+
+    <!-- 品类明细 -->
+    <section class="page" id="page-category">
+      <div class="topbar">
+        <div>
+          <h1>品类效果明细</h1>
+          <div class="meta">共 10 个品类 · 点击表头排序,点柱状图跳到对应品类行</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>各品类 ROI</h3>
+        <div class="sub">点击任意一根柱子,下方表格会高亮并筛选出该品类</div>
+        <canvas id="categoryRoiChart"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="search" placeholder="搜索品类名称...">
+          <select id="roiFilter">
+            <option value="all">全部 ROI</option>
+            <option value="high">ROI ≥ 10</option>
+            <option value="low">ROI &lt; 1</option>
+          </select>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th data-key="c">品类</th><th data-key="cost">花费</th><th data-key="sales">总成交金额</th>
+              <th data-key="roi">ROI</th><th data-key="ctr">点击率</th><th data-key="cvr">转化率</th><th data-key="cpc">CPC</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="no-result" id="noResult" style="display:none;">没有匹配的品类</div>
+      </div>
+    </section>
+
+    <!-- 主体明细 -->
+    <section class="page" id="page-subjects">
+      <div class="topbar">
+        <div>
+          <h1>主体推广数据明细</h1>
+          <div class="meta">共 100 条主体记录 · 搜索/排序/分级预警标签</div>
+        </div>
+      </div>
+      <div class="scope-note">
+        <b>关于分级标签</b>:只有 16 个主体在原始数据里明确标了品类(NB/平板/服务/手机/DT/IP),这几个才能对着品类阈值判定🔴🟡🟢;其余主体品类未标注,标签显示"未分类",<b>不做推测判定</b>,避免编造品类信息。
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="subjSearch" placeholder="搜索商品名称 / 主体ID / 品牌...">
+          <select id="subjTierFilter">
+            <option value="all">全部标签</option>
+            <option value="red">🔴 需紧急处理</option>
+            <option value="yellow">🟡 效率偏低</option>
+            <option value="green">🟢 表现优异</option>
+            <option value="none">未分类</option>
+          </select>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th data-key="id">主体ID</th><th>商品名称</th><th data-key="brand">品牌</th>
+              <th data-key="cost">花费</th><th data-key="sales">成交金额</th><th data-key="roi">ROI</th>
+              <th data-key="ctr">点击率</th><th data-key="cvr">转化率</th><th data-key="cpc">CPC</th><th>标签</th>
+            </tr>
+          </thead>
+          <tbody id="subjTbody"></tbody>
+        </table>
+        <div class="no-result" id="subjNoResult" style="display:none;">没有匹配的主体</div>
+      </div>
+    </section>
+
+    <!-- 全景视图 -->
+    <section class="page" id="page-panorama">
+      <div class="topbar">
+        <div>
+          <h1>上帝视角:100 个主体的「推广效率」全景</h1>
+          <div class="meta">横轴 = CPC(投放成本压力)· 纵轴 = ROI(投产比)· 气泡大小 = 花费</div>
+        </div>
+      </div>
+      <div class="scope-note">
+        <b>怎么读</b>:盯右上角<b>红色区</b>——CPC 高(买量成本贵)、却赚不到钱(ROI &lt; 2)的主体,钱在这里烧掉了。
+        阈值线:CPC = <span id="cpcThLabel"></span>(全部主体的中位数)、ROI = 2。这两条线的位置是规则设定,不是编造的数据。
+      </div>
+
+      <div class="card">
+        <div id="panoramaLegend" style="display:flex; gap:18px; margin-bottom:10px; font-size:12.5px; flex-wrap:wrap;"></div>
+        <canvas id="panoramaChart" style="max-height:420px;"></canvas>
+        <div class="hint">点击图例可以显示/隐藏对应分组;点击气泡会跳到"主体明细"页并定位到该主体</div>
+      </div>
+
+      <div class="card">
+        <h3 style="cursor:pointer;" onclick="toggleDataTable()">▶ 数据表(点击展开/收起,每组显示花费TOP5)</h3>
+        <div id="panoramaTableWrap" style="display:none; margin-top:12px;"></div>
+      </div>
+    </section>
+
+    <!-- 渠道费率 -->
+    <section class="page" id="page-rate">
+      <div class="topbar">
+        <div>
+          <h1>渠道费率</h1>
+          <div class="meta">去退销售额 = 支付金额 − 成功退款金额,当前 ¥6,580 万</div>
+        </div>
+      </div>
+      <div class="hero">
+        <div>
+          <div class="hl">整体花费费率</div>
+          <div class="hv" id="totalRate">2.13%</div>
+        </div>
+        <div class="hf">= 万相台 + 淘客 + 热浪 花费合计 ÷ 去退销售额<br>点击下方柱子或勾选框都能切换是否计入</div>
+      </div>
+
+      <div class="card">
+        <h3>品专 / 内容 / 直播 · 各自全店费率</h3>
+        <div class="sub">三者各自独立计算,均不计入上方"整体花费费率"</div>
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+          <div class="kpi"><div class="label">品专全店费率</div><div class="value">0.31%</div><div class="hint">花费¥20.40万 ÷ 去退¥6580万</div></div>
+          <div class="kpi"><div class="label">内容全店费率</div><div class="value">0.15%</div><div class="hint">花费¥3.12万 ÷ 去退¥6580万</div></div>
+          <div class="kpi"><div class="label">直播全店费率</div><div class="value">0.24%</div><div class="hint">花费¥4.86万 ÷ 去退¥6580万</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>万相台费率表</h3>
+        <div class="sub">万相台内部按品类拆分,费率统一基于去退销售额(¥6580万)计算</div>
+        <table>
+          <thead><tr><th>品类</th><th>花费</th><th>费率(基于去退)</th></tr></thead>
+          <tbody id="wxtRateTbody"></tbody>
+          <tfoot><tr style="font-weight:700; border-top:2px solid var(--line);">
+            <td style="padding:10px;">万相台合计</td><td style="padding:10px;" id="wxtTotalCost"></td><td style="padding:10px;" id="wxtTotalRate"></td>
+          </tr></tfoot>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>整体花费费率构成(点击柱子切换是否计入)</h3>
+        <div class="sub">万相台 / 淘客 / 热浪 三者花费合计 ÷ 去退销售额;品专/内容/直播单独展示,不参与这里的合计</div>
+        <canvas id="rateChart"></canvas>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th style="width:40px;"></th><th>渠道</th><th>花费</th><th>占比</th><th>费率(基于去退)</th><th>说明</th></tr>
+          </thead>
+          <tbody id="rateTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- AI 基础策略提示 -->
+    <section class="page" id="page-ai">
+      <div class="topbar"><div><h1>基础策略提示</h1></div></div>
+      <div class="scope-note">
+        <b>范围说明</b>:本页只做<b>按品类的分级阈值判定</b>(警戒线/及格线,来自实际数据;缺数据的品类如实显示"—",不编造),<b>不生成策略叙述、不引用案例库、不给"建议动作"</b>。复杂的判断留给人工。
+      </div>
+
+      <div class="card">
+        <h3>品类分级阈值表</h3>
+        <div class="sub">警戒线/及格线仅在有实际数据时展示;没有数据的品类不做估算</div>
+        <table>
+          <thead><tr><th>品类</th><th>警戒线</th><th>及格线</th><th>数据来源说明</th></tr></thead>
+          <tbody id="threshTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>品类 ROI 分布 vs 警戒线 / 及格线</h3>
+        <div class="sub">只画出有实际阈值数据的品类;蓝色柱=ROI,红/黄虚线=对应品类的警戒线/及格线</div>
+        <canvas id="aiChart"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>分级检测结果</h3>
+        <div class="sub">按上面阈值表对10个品类逐一判定,没有阈值数据的品类标"未定级"</div>
+        <div id="flagList"></div>
+      </div>
+
+      <div class="card" id="autoCard">
+        <h3>自动化预览 <span style="font-size:11px; font-weight:400; color:var(--sub);">— API接入后生效,这里先预览效果</span></h3>
+        <div class="sub">未来接入实时API后:指标(如ROI)触发阈值,或每5分钟一次,会自动重新跑一遍上面这套分级判定,不需要人工点按钮</div>
+        <div class="auto-row">
+          <label class="switch">
+            <input type="checkbox" id="autoToggle" onchange="toggleAuto(this.checked)">
+            <span class="slider"></span>
+          </label>
+          <span id="autoStatusText">自动检测:已关闭</span>
+          <span class="auto-badge" id="autoCountdown" style="display:none;"></span>
+          <span class="auto-note">演示环境已加速:每 15 秒模拟一次"5分钟刷新"</span>
+        </div>
+        <div class="sub" style="margin-top:14px; margin-bottom:8px;">触发记录</div>
+        <div id="autoLog"><div class="no-flag">还没有自动触发记录</div></div>
+      </div>
+    </section>
+
+    <!-- 知识库 -->
+    <section class="page" id="page-kb">
+      <div class="topbar">
+        <div>
+          <h1>知识库 / 规则库 V1.0</h1>
+          <div class="meta">对应团队分工里"知识库"这一栏:目录结构 + 规则库V1.0 + 指标口径</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>目录结构</h3>
+        <div class="sub">确认知识库结构,优化目录 · 推进人:卓昊/文淼/瑞娟</div>
+        <div class="kb-tree">
+          <div class="kb-tree-item">📁 知识库
+            <div class="kb-tree-item" style="margin-left:20px;">📁 规则库(V1.0,已梳理:分层阈值 + 诊断标签体系)</div>
+            <div class="kb-tree-item" style="margin-left:20px;">📁 案例库(待建立)</div>
+            <div class="kb-tree-item" style="margin-left:20px;">📁 指标口径(已梳理:CTR / ROI / 消耗 等核心公式)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>规则库 V1.0 · 分层阈值 + 诊断标签体系</h3>
+        <div class="sub">来源:部分为实际数据(警戒线/及格线),缺失的明确标注"—",不编造</div>
+        <table>
+          <thead><tr><th>规则ID</th><th>品类</th><th>警戒线</th><th>及格线</th><th>诊断标签逻辑</th></tr></thead>
+          <tbody id="kbRuleTbody"></tbody>
+        </table>
+        <div class="hint">"计划分级"(按投放计划粒度而不是品类粒度分层)目前还是团队分工表里带问号的开放问题,这里暂时只做到品类粒度。</div>
+      </div>
+
+      <div class="card">
+        <h3>指标口径</h3>
+        <div class="sub">对应"SQL / 核心指标计算逻辑"任务,前端计算公式跟这份口径保持一致</div>
+        <table>
+          <thead><tr><th>指标</th><th>公式</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>消耗 / 花费</td><td>Σ 花费</td><td>原始明细按筛选维度实际求和,不做估算</td></tr>
+            <tr><td>CTR(点击率)</td><td>点击量 ÷ 展现量</td><td></td></tr>
+            <tr><td>CVR(转化率)</td><td>成交笔数 ÷ 点击量</td><td></td></tr>
+            <tr><td>CPC</td><td>花费 ÷ 点击量</td><td></td></tr>
+            <tr><td>ROI(投产比)</td><td>总成交金额 ÷ 花费</td><td></td></tr>
+            <tr><td>去退销售额</td><td>支付金额 − 成功退款金额</td><td>"全店踢退销售额"</td></tr>
+            <tr><td>全店费率</td><td>花费 ÷ 去退销售额</td><td>品专/内容/直播各自独立算一个</td></tr>
+            <tr><td>整体花费费率</td><td>(万相台+淘客+热浪 花费合计) ÷ 去退销售额</td><td>品专/内容/直播不计入</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>案例库</h3>
+        <div class="sub">待建立 · 推进人待定</div>
+        <div class="no-flag">还没有真实案例数据,暂不展示占位内容,避免误导</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ---------- 纯内部切换,不改URL ---------- */
+let chartsInited = {overview:false, datastatus:false, history:false, category:false, subjects:false, panorama:false, rate:false, ai:false, kb:false};
+
+function switchPage(route){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-link').forEach(a=>a.classList.remove('active'));
+  document.getElementById('page-'+route).classList.add('active');
+  document.querySelector(`.sb-link[data-route="${route}"]`).classList.add('active');
+  if(!chartsInited[route]){
+    if(route==='overview') initOverviewCharts();
+    if(route==='datastatus') { /* 纯静态展示,无需初始化 */ }
+    if(route==='history') initHistoryPage();
+    if(route==='category') initCategoryChart();
+    if(route==='subjects') initSubjectsPage();
+    if(route==='panorama') initPanorama();
+    if(route==='rate') initRateChart();
+    if(route==='ai') initAiChart();
+    if(route==='kb') initKbPage();
+    chartsInited[route] = true;
+  }
+}
+
+/* ---------- 数据 ---------- */
+const catData = [
+  {c:'NB', cost:20.28, sales:1158.57, roi:57.14, ctr:7.24, cvr:0.49, cpc:0.65},
+  {c:'平板', cost:18.58, sales:398.65, roi:21.46, ctr:5.78, cvr:0.79, cpc:0.79},
+  {c:'服务', cost:16.30, sales:88.68, roi:5.44, ctr:6.05, cvr:8.06, cpc:1.12},
+  {c:'IP', cost:10.33, sales:76.63, roi:7.42, ctr:5.66, cvr:3.31, cpc:1.19},
+  {c:'手机', cost:4.51, sales:40.18, roi:8.90, ctr:2.55, cvr:0.35, cpc:1.00},
+  {c:'DT', cost:3.47, sales:185.23, roi:53.41, ctr:5.75, cvr:0.85, cpc:0.75},
+  {c:'选件', cost:2.22, sales:26.54, roi:11.95, ctr:6.84, cvr:5.30, cpc:0.62},
+  {c:'显示器', cost:1.34, sales:15.66, roi:11.69, ctr:4.80, cvr:1.11, cpc:0.85},
+  {c:'SIOT', cost:0.0903, sales:0.6782, roi:7.51, ctr:4.02, cvr:1.05, cpc:1.18},
+  {c:'其他', cost:0.0628, sales:0.0162, roi:0.26, ctr:4.87, cvr:2.12, cpc:2.66}
+];
+
+/* ---------- 主体明细数据(来自真实报表粘贴,100条) ---------- */
+const subjectsData = [{"id": "1045221467001", "name": "【国补至高15%】联想小新 air13 13.3英寸2026...", "brand": "小新", "cost": 4093.0, "sales": 181000.0, "roi": 44.22, "ctr": 6.76, "cvr": 0.36, "cpc": 0.4, "category": ""}, {"id": "953660721948", "name": "【性价比平板】联想小新平板12.1 12.1英寸超清大屏平板...", "brand": "小新", "cost": 3938.0, "sales": 62500.0, "roi": 15.87, "ctr": 5.67, "cvr": 0.95, "cpc": 0.68, "category": ""}, {"id": "1049222295472", "name": "【国补15%】*来酷air14 酷睿版 2026 笔记本电脑...", "brand": "来酷", "cost": 3585.0, "sales": 30100.0, "roi": 8.4, "ctr": 4.27, "cvr": 0.28, "cpc": 1.42, "category": "NB"}, {"id": "698218631635", "name": "【政府补贴】联想小新Pro14/Pro16 酷睿Ultra5...", "brand": "小新", "cost": 3543.0, "sales": 190500.0, "roi": 53.75, "ctr": 8.27, "cvr": 0.56, "cpc": 0.74, "category": ""}, {"id": "814178698074", "name": "【政府补贴】联想平板小新Pad Pro 12.7英寸平板 大...", "brand": "小新", "cost": 3441.0, "sales": 29100.0, "roi": 8.46, "ctr": 5.89, "cvr": 0.62, "cpc": 1.07, "category": "平板"}, {"id": "1046778033099", "name": "【政府补贴15%】联想AI平板 拯救者Y900 11英寸平板...", "brand": "拯救者", "cost": 2860.0, "sales": 86600.0, "roi": 30.29, "ctr": 6.48, "cvr": 0.85, "cpc": 0.76, "category": ""}, {"id": "1047256724586", "name": "【12+256补贴400+国补15%】联想拯救者手机Y70 ...", "brand": "拯救者", "cost": 2688.0, "sales": 33000.0, "roi": 12.27, "ctr": 2.9, "cvr": 0.41, "cpc": 0.93, "category": ""}, {"id": "1022989220404", "name": "【国家补贴】联想AI平板 拯救者 Y700 五代 AI元启版...", "brand": "拯救者", "cost": 2641.0, "sales": 53800.0, "roi": 20.37, "ctr": 7.67, "cvr": 0.4, "cpc": 0.82, "category": ""}, {"id": "1047659420020", "name": "【政府补贴15%】联想AI平板拯救者Y900 13 英寸平板...", "brand": "拯救者", "cost": 2338.0, "sales": 50300.0, "roi": 21.5, "ctr": 7.57, "cvr": 0.74, "cpc": 1.08, "category": ""}, {"id": "1026706794886", "name": "【新品+国补】联想小新Pro14/Pro16GT 2026 ...", "brand": "小新", "cost": 2198.0, "sales": 108100.0, "roi": 49.2, "ctr": 7.87, "cvr": 0.56, "cpc": 0.82, "category": ""}, {"id": "1047799964434", "name": "【学生立减500叠加国补】联想拯救者 Y7000X/Y700...", "brand": "拯救者", "cost": 2043.0, "sales": 86700.0, "roi": 42.43, "ctr": 10.16, "cvr": 0.33, "cpc": 0.6, "category": ""}, {"id": "1027731755179", "name": "【新品首发+国补】联想AI平板 拯救者Y700 五代 AI元...", "brand": "拯救者", "cost": 2025.0, "sales": 15700.0, "roi": 7.73, "ctr": 3.4, "cvr": 0.2, "cpc": 0.68, "category": "平板"}, {"id": "1059340948168", "name": "联想150W充电器头氮化镓PD快充140W适配器typec适...", "brand": "电源", "cost": 2021.0, "sales": 3924.0, "roi": 1.94, "ctr": 5.11, "cvr": 2.51, "cpc": 3.38, "category": "IP"}, {"id": "1046956257423", "name": "【新品首发】联想YOGA Air14 Ultra Aura ...", "brand": "YOGA", "cost": 1992.0, "sales": 14000.0, "roi": 7.03, "ctr": 5.54, "cvr": 0.08, "cpc": 0.81, "category": "NB"}, {"id": "802967825905", "name": "【国家补贴】联想拯救者Y7000P 酷睿Ultra7 255...", "brand": "拯救者", "cost": 1989.0, "sales": 160300.0, "roi": 80.6, "ctr": 12.03, "cvr": 0.25, "cpc": 0.31, "category": ""}, {"id": "896834690768", "name": "联想生态品牌异能者电脑音箱大音量台式家用音响迷你低音炮小型*", "brand": "异能者", "cost": 1959.0, "sales": 9631.0, "roi": 4.92, "ctr": 7.04, "cvr": 13.96, "cpc": 0.94, "category": ""}, {"id": "988463940873", "name": "#联想2026款随身wifi移动无线网络全国通用无限速流量上...", "brand": "WiFi", "cost": 1947.0, "sales": 2132.0, "roi": 1.1, "ctr": 6.86, "cvr": 3.77, "cpc": 1.79, "category": "IP"}, {"id": "982105512988", "name": "#联想拯救者移动三网通用随身wifi便携式伴侣网络热点202...", "brand": "随身wifi", "cost": 1839.0, "sales": 2661.0, "roi": 1.45, "ctr": 6.64, "cvr": 3.36, "cpc": 3.86, "category": "IP"}, {"id": "1046922357185", "name": "【学生立减500起叠加国补】联想拯救者Y9000P/Y900...", "brand": "拯救者", "cost": 1697.0, "sales": 131300.0, "roi": 77.35, "ctr": 8.72, "cvr": 0.32, "cpc": 0.69, "category": ""}, {"id": "843912713918", "name": "联想小新XS510固态U盘大容量双接口固态高速手机电脑两用U...", "brand": "U盘", "cost": 1626.0, "sales": 21600.0, "roi": 13.29, "ctr": 6.22, "cvr": 3.48, "cpc": 1.26, "category": ""}, {"id": "1057397966015", "name": "【重磅新品】联想锋行者140W二合一充电宝器3C认证可上飞机...", "brand": "电源", "cost": 1590.0, "sales": 2472.0, "roi": 1.55, "ctr": 3.97, "cvr": 0.49, "cpc": 1.3, "category": "IP"}, {"id": "953038946045", "name": "【政府补贴】联想小新平板Pro GT 11.1英寸3.2K超...", "brand": "小新", "cost": 1538.0, "sales": 15400.0, "roi": 10.04, "ctr": 6.18, "cvr": 0.43, "cpc": 0.73, "category": ""}, {"id": "1045221343950", "name": "【国补至高15%】联想小新air14 2026酷睿Ultra...", "brand": "小新", "cost": 1512.0, "sales": 136400.0, "roi": 90.16, "ctr": 8.98, "cvr": 0.71, "cpc": 0.51, "category": ""}, {"id": "904856271769", "name": "【国家补贴】联想拯救者Y9000P至尊版/Y9000P 酷睿...", "brand": "拯救者", "cost": 1496.0, "sales": 173100.0, "roi": 115.76, "ctr": 12.87, "cvr": 0.29, "cpc": 0.31, "category": "NB"}, {"id": "1022202769573", "name": "【新品首发+国补】联想AI平板 小新 Pro13 AI元启版...", "brand": "小新", "cost": 1490.0, "sales": 17700.0, "roi": 11.9, "ctr": 5.94, "cvr": 0.49, "cpc": 1.05, "category": ""}, {"id": "674626793026", "name": "【超级年货节】联想小新平板电脑小新平板11 2025款 11...", "brand": "小新", "cost": 1444.0, "sales": 18600.0, "roi": 12.89, "ctr": 4.85, "cvr": 0.58, "cpc": 0.64, "category": ""}, {"id": "709137427851", "name": "联想拯救者移动固态硬盘高速固态硬盘1t磁吸大容量手机电脑两用", "brand": "固态硬盘", "cost": 1370.0, "sales": 27600.0, "roi": 20.16, "ctr": 6.71, "cvr": 0.92, "cpc": 0.79, "category": ""}, {"id": "856692675694", "name": "联想生态品牌异能者蓝牙耳机无线高清音质智能降噪适用苹果小米*", "brand": "异能者", "cost": 1349.0, "sales": 5821.0, "roi": 4.31, "ctr": 8.78, "cvr": 7.08, "cpc": 0.82, "category": ""}, {"id": "965047019480", "name": "【政府补贴】联想平板小新平板11 2025 11英寸护眼屏 ...", "brand": "小新", "cost": 1314.0, "sales": 10700.0, "roi": 8.14, "ctr": 6.75, "cvr": 0.51, "cpc": 0.84, "category": ""}, {"id": "831168562328", "name": "【爆款】联想F508移动硬盘2t大容量高速1t USB3.2...", "brand": "存储", "cost": 1233.0, "sales": 17700.0, "roi": 14.39, "ctr": 6.17, "cvr": 2.82, "cpc": 1.12, "category": ""}, {"id": "692675661812", "name": "联想生态品牌异能者无线键盘鼠标套装台式电脑办公商务通用键鼠新", "brand": "异能者", "cost": 1215.0, "sales": 10100.0, "roi": 8.3, "ctr": 7.29, "cvr": 10.03, "cpc": 1.16, "category": ""}, {"id": "955631195250", "name": "联想小新平板12.1 2025款 12.1英寸2.5K护眼超...", "brand": "小新", "cost": 1095.0, "sales": 26300.0, "roi": 24.01, "ctr": 5.92, "cvr": 1.77, "cpc": 0.81, "category": ""}, {"id": "868262948265", "name": "【爆款】联想生态异能者无线蓝牙鼠标轻音办公滑鼠双模电脑鼠标新", "brand": "异能者", "cost": 1088.0, "sales": 5719.0, "roi": 5.26, "ctr": 6.62, "cvr": 11.81, "cpc": 0.92, "category": ""}, {"id": "693238751766", "name": "联想生态品牌异能者笔记本电脑支架增高架桌面双层无级悬停联想小...", "brand": "异能者", "cost": 1086.0, "sales": 3970.0, "roi": 3.65, "ctr": 6.87, "cvr": 10.2, "cpc": 1.98, "category": ""}, {"id": "915114997767", "name": "【游戏平板】联想平板拯救者Y700 AI元启版 四代8.8英...", "brand": "拯救者", "cost": 1084.0, "sales": 1143.0, "roi": 1.05, "ctr": 4.36, "cvr": 0.36, "cpc": 0.65, "category": "平板"}, {"id": "714883714970", "name": "联想生态品牌异能者笔记本散热器电脑支架降温底座风扇风冷拯救者...", "brand": "异能者", "cost": 1084.0, "sales": 3267.0, "roi": 3.01, "ctr": 7.22, "cvr": 8.11, "cpc": 2.09, "category": ""}, {"id": "1000222877154", "name": "#联想5G电竞随身无线wifi移动网无限速全国通用高速游戏流...", "brand": "随身wifi", "cost": 1065.0, "sales": 4731.0, "roi": 4.44, "ctr": 4.56, "cvr": 1.22, "cpc": 1.3, "category": ""}, {"id": "1050848096551", "name": "【学生认证立减200元】联想拯救者Y700 五代 DNF手游...", "brand": "拯救者", "cost": 1056.0, "sales": 18800.0, "roi": 17.84, "ctr": 3.64, "cvr": 0.39, "cpc": 0.68, "category": ""}, {"id": "1045227731608", "name": "【新品上市】联想来酷14 锐龙版 14英寸2.2K高分屏轻薄...", "brand": "来酷", "cost": 998.0, "sales": 21000.0, "roi": 21.0, "ctr": 2.67, "cvr": 0.29, "cpc": 0.72, "category": ""}, {"id": "915506081434", "name": "【优先顺丰】联想平板小新平板11 2025款11英寸护眼屏 ...", "brand": "小新", "cost": 993.0, "sales": 10000.0, "roi": 10.11, "ctr": 4.36, "cvr": 0.7, "cpc": 0.78, "category": ""}, {"id": "987822581853", "name": "【国家补贴至高15%】联想moto g100 第二代骁龙7s...", "brand": "G", "cost": 890.0, "sales": 6745.0, "roi": 7.58, "ctr": 3.77, "cvr": 0.41, "cpc": 0.73, "category": ""}, {"id": "1047804008546", "name": "【国补至高15%】联想拯救者R9000P 2026 锐龙9 ...", "brand": "拯救者", "cost": 876.0, "sales": 93500.0, "roi": 106.71, "ctr": 7.6, "cvr": 0.72, "cpc": 0.79, "category": "NB"}, {"id": "917555217143", "name": "联想原装笔记本电脑typec充电器小新air yoga th...", "brand": "充电器", "cost": 865.0, "sales": 3811.0, "roi": 4.4, "ctr": 9.8, "cvr": 6.89, "cpc": 2.21, "category": ""}, {"id": "1046238451698", "name": "【性价比轻薄本*】联想来酷 Lecoo 15 酷睿i5标压 ...", "brand": "来酷", "cost": 860.0, "sales": 18100.0, "roi": 20.99, "ctr": 3.51, "cvr": 1.18, "cpc": 2.04, "category": ""}, {"id": "747903914626", "name": "联想生态品牌异能者笔记本电脑支架折叠便携托架铝合金底座桌面增...", "brand": "异能者", "cost": 829.0, "sales": 2957.0, "roi": 3.57, "ctr": 8.31, "cvr": 11.52, "cpc": 1.33, "category": ""}, {"id": "680563544717", "name": "联想拯救者电竞显示器27英寸 2K分辨率可选240Hz高刷支...", "brand": "Y", "cost": 828.0, "sales": 6786.0, "roi": 8.2, "ctr": 5.13, "cvr": 0.94, "cpc": 0.97, "category": ""}, {"id": "892035482450", "name": "联想生态品牌异能者电脑音箱家用大音量台式音响游戏桌面低音炮新", "brand": "异能者", "cost": 824.0, "sales": 3367.0, "roi": 4.09, "ctr": 5.74, "cvr": 7.82, "cpc": 1.02, "category": ""}, {"id": "889433655039", "name": "#联想拯救者移动三网通用随身wifi便携式伴侣网络热点202...", "brand": "随身wifi", "cost": 774.0, "sales": 654.0, "roi": 0.84, "ctr": 5.1, "cvr": 2.83, "cpc": 2.73, "category": ""}, {"id": "816328597052", "name": "联想生态品牌异能者电脑音箱家用大音量音响多媒体桌面低音炮新款", "brand": "异能者", "cost": 732.0, "sales": 2416.0, "roi": 3.3, "ctr": 5.8, "cvr": 6.35, "cpc": 0.97, "category": ""}, {"id": "728642254927", "name": "【*千元主机】来酷Lecoo 酷310可选 家用办公台式机电...", "brand": "BOX", "cost": 708.0, "sales": 35100.0, "roi": 49.64, "ctr": 7.64, "cvr": 1.76, "cpc": 1.13, "category": ""}, {"id": "865445252413", "name": "联想生态品牌异能者无线蓝牙耳机挂耳式AI翻译耳夹运动佩戴不掉", "brand": "异能者", "cost": 694.0, "sales": 2767.0, "roi": 3.99, "ctr": 5.89, "cvr": 5.79, "cpc": 1.18, "category": ""}, {"id": "693133855377", "name": "联想生态品牌异能者头戴式蓝牙耳机无线音乐电脑电竞游戏适用小米", "brand": "异能者", "cost": 670.0, "sales": 1731.0, "roi": 2.58, "ctr": 4.83, "cvr": 3.27, "cpc": 1.37, "category": ""}, {"id": "695814194391", "name": "联想生态品牌异能者有线电脑键盘商务办公套装笔记本外接通用*", "brand": "异能者", "cost": 665.0, "sales": 2265.0, "roi": 3.4, "ctr": 4.23, "cvr": 8.16, "cpc": 1.06, "category": ""}, {"id": "604281521475", "name": "*来酷Lecoo AIO一体机电脑23.8英寸/27英寸台式...", "brand": "AIO", "cost": 641.0, "sales": 21500.0, "roi": 33.56, "ctr": 4.7, "cvr": 1.64, "cpc": 1.75, "category": ""}, {"id": "614646714172", "name": "联想日用高刷显示器高清护眼IPS面板内置音响可选 家用办公显...", "brand": "显示器", "cost": 596.0, "sales": 5694.0, "roi": 9.55, "ctr": 5.42, "cvr": 1.28, "cpc": 0.96, "category": ""}, {"id": "834755078288", "name": "联想生态品牌异能者无线蓝牙耳机头戴式降噪耳麦主动降噪空间音频", "brand": "异能者", "cost": 575.0, "sales": 702.0, "roi": 1.22, "ctr": 6.66, "cvr": 1.76, "cpc": 1.68, "category": "服务"}, {"id": "692382588930", "name": "联想生态品牌异能者Typec双接口U盘usb高速32/64/...", "brand": "异能者", "cost": 563.0, "sales": 2893.0, "roi": 5.14, "ctr": 7.81, "cvr": 5.69, "cpc": 1.23, "category": ""}, {"id": "1061370859982", "name": "【国家补贴15%】联想拯救者手机Y70 新一代支持梦幻多开2...", "brand": "拯救者", "cost": 529.0, "sales": 0.0, "roi": 0.0, "ctr": 1.76, "cvr": 0.0, "cpc": 0.65, "category": "手机"}, {"id": "967045582490", "name": "【性价比轻薄本*】来酷Lecoo 14/15 酷睿版 酷睿i...", "brand": "来酷", "cost": 502.0, "sales": 8997.0, "roi": 17.92, "ctr": 4.59, "cvr": 0.35, "cpc": 0.88, "category": ""}, {"id": "1045996394373", "name": "【新品首发支持消费券】联想YOGA Air14 Ultra ...", "brand": "YOGA", "cost": 500.0, "sales": 30000.0, "roi": 60.0, "ctr": 4.06, "cvr": 0.27, "cpc": 0.67, "category": ""}, {"id": "948665096431", "name": "联想生态品牌异能者有线耳机半入耳式音乐高音质手机电脑通用*", "brand": "异能者", "cost": 491.0, "sales": 1182.0, "roi": 2.41, "ctr": 6.96, "cvr": 13.96, "cpc": 1.4, "category": ""}, {"id": "1049454789862", "name": "新品异能者电脑包大容量防泼面料简约轻便通勤公文包笔记本手提包...", "brand": "异能者", "cost": 480.0, "sales": 937.0, "roi": 1.95, "ctr": 4.34, "cvr": 5.94, "cpc": 1.68, "category": ""}, {"id": "635069905186", "name": "联想小新蓝牙无线静音轻音充电双模鼠标 办公学习笔记本电脑鼠标", "brand": "键鼠", "cost": 449.0, "sales": 7813.0, "roi": 17.39, "ctr": 6.11, "cvr": 9.88, "cpc": 0.77, "category": ""}, {"id": "1046945280828", "name": "【*国家补贴15%】来酷Mini Pro台式电脑主机迷你小机...", "brand": "MINI", "cost": 448.0, "sales": 16200.0, "roi": 36.26, "ctr": 5.23, "cvr": 0.4, "cpc": 0.45, "category": ""}, {"id": "985133630332", "name": "联想生态品牌异能者扩展坞笔记本支架4合1拓展坞折叠便携托架铝...", "brand": "异能者", "cost": 430.0, "sales": 1420.0, "roi": 3.3, "ctr": 6.08, "cvr": 9.34, "cpc": 2.37, "category": ""}, {"id": "685413395523", "name": "联想一键服务M26无线鼠标笔记本台式电脑商务办公家用便携通用", "brand": "键鼠", "cost": 430.0, "sales": 2299.0, "roi": 5.35, "ctr": 7.77, "cvr": 20.19, "cpc": 1.02, "category": ""}, {"id": "940912114095", "name": "联想GK10机械键盘极光客制化无线三模蓝牙RGB电竞游戏专用...", "brand": "包键鼠", "cost": 417.0, "sales": 1155.0, "roi": 2.77, "ctr": 5.84, "cvr": 3.45, "cpc": 1.8, "category": ""}, {"id": "826851510078", "name": "联想生态品牌异能者蓝牙音响木质桌面有线音响家用复古小型低音*", "brand": "异能者", "cost": 415.0, "sales": 1367.0, "roi": 3.29, "ctr": 5.37, "cvr": 4.48, "cpc": 0.71, "category": ""}, {"id": "986650128018", "name": "【*优选爆品】来酷斗战者锋7000 游戏台式机 电竞台式机电...", "brand": "GAMING", "cost": 400.0, "sales": 4575.0, "roi": 11.44, "ctr": 4.62, "cvr": 0.21, "cpc": 0.83, "category": "DT"}, {"id": "984930785054", "name": "【*爆款主机】Lecoo来酷台式机 酷310可选 家用办公台...", "brand": "BOX", "cost": 392.0, "sales": 25400.0, "roi": 64.79, "ctr": 8.5, "cvr": 1.42, "cpc": 0.62, "category": ""}, {"id": "991460479605", "name": "联想生态品牌异能者无线蓝牙耳机Al翻译挂耳式舒适佩戴夹耳不掉", "brand": "异能者", "cost": 383.0, "sales": 340.0, "roi": 0.89, "ctr": 4.76, "cvr": 4.5, "cpc": 3.45, "category": ""}, {"id": "1012092715674", "name": "#联想5G电竞随身无线wifi移动网无限速全国通用高速游戏流...", "brand": "随身wifi", "cost": 380.0, "sales": 1126.0, "roi": 2.96, "ctr": 3.03, "cvr": 0.53, "cpc": 1.01, "category": ""}, {"id": "719198655848", "name": "联想生态品牌异能者无线鼠标笔记本电脑台式办公家用男女多彩轻音", "brand": "异能者", "cost": 378.0, "sales": 3313.0, "roi": 8.75, "ctr": 5.22, "cvr": 13.83, "cpc": 0.55, "category": ""}, {"id": "768525057426", "name": "【爆款游戏本】联想拯救者Y7000P 2025 酷睿i7/i...", "brand": "拯救者", "cost": 362.0, "sales": 64800.0, "roi": 178.74, "ctr": 8.6, "cvr": 0.9, "cpc": 0.65, "category": "NB"}, {"id": "692870698361", "name": "联想生态品牌异能者高速usb扩展器分线器USB3.0多口ty...", "brand": "异能者", "cost": 351.0, "sales": 1724.0, "roi": 4.91, "ctr": 7.43, "cvr": 11.57, "cpc": 0.85, "category": ""}, {"id": "669523241123", "name": "联想SW5移动固态硬盘大容量电脑手机两用高速固态移动硬盘正品...", "brand": "存储", "cost": 350.0, "sales": 1817.0, "roi": 5.19, "ctr": 3.91, "cvr": 1.03, "cpc": 1.21, "category": ""}, {"id": "974449298972", "name": "联想拯救者显示器27英寸原生高刷屏可选 游戏电竞显示器27-...", "brand": "显示器", "cost": 345.0, "sales": 2106.0, "roi": 6.1, "ctr": 4.17, "cvr": 0.64, "cpc": 0.74, "category": ""}, {"id": "1030279960950", "name": "【*国家补贴15%】来酷 酷310可选 家用办公台式机电脑主...", "brand": "BOX", "cost": 320.0, "sales": 6728.0, "roi": 21.03, "ctr": 5.44, "cvr": 1.13, "cpc": 1.21, "category": ""}, {"id": "990572203647", "name": "【3C认证】联想原装轻薄笔记本电源适配器Type-C 口10...", "brand": "电源", "cost": 311.0, "sales": 1654.0, "roi": 5.32, "ctr": 8.24, "cvr": 6.15, "cpc": 1.74, "category": ""}, {"id": "1021001260901", "name": "【*国家补贴15%】来酷 AIO一体机电脑23.8英寸/27...", "brand": "BOX", "cost": 300.0, "sales": 14200.0, "roi": 47.42, "ctr": 6.07, "cvr": 1.9, "cpc": 1.14, "category": ""}, {"id": "967638961396", "name": "联想生态品牌异能者话筒音响一体麦克风家用唱K歌音箱家庭KTV...", "brand": "异能者", "cost": 295.0, "sales": 1087.0, "roi": 3.68, "ctr": 4.82, "cvr": 5.08, "cpc": 1.5, "category": ""}, {"id": "956873308796", "name": "【优先顺丰*】联想小新平板Pro GT 11.1英寸3.2K...", "brand": "小新", "cost": 291.0, "sales": 2619.0, "roi": 8.99, "ctr": 5.55, "cvr": 0.56, "cpc": 0.54, "category": ""}, {"id": "1039870317128", "name": "#联想2026新品XM40C随身wifi6无线网络无限速移动...", "brand": "随身wifi", "cost": 279.0, "sales": 343.0, "roi": 1.23, "ctr": 5.25, "cvr": 5.17, "cpc": 2.4, "category": ""}, {"id": "951347387368", "name": "联想小新XS530固态U盘双接口Type-C固态高速手机电脑...", "brand": "存储", "cost": 250.0, "sales": 968.0, "roi": 3.88, "ctr": 5.5, "cvr": 1.27, "cpc": 0.45, "category": ""}, {"id": "1049703411742", "name": "联想投资品牌异能者支架笔记本折叠便携托架高颜值多巴胺配色七档...", "brand": "异能者", "cost": 247.0, "sales": 379.0, "roi": 1.53, "ctr": 6.13, "cvr": 6.37, "cpc": 1.21, "category": ""}, {"id": "554344616776", "name": "联想笔记本电脑清洁套装键盘清理手机屏幕清洁剂清灰显示器工具", "brand": "清洁套装", "cost": 246.0, "sales": 2031.0, "roi": 8.27, "ctr": 6.59, "cvr": 8.47, "cpc": 0.36, "category": ""}, {"id": "596221008221", "name": "联想Handle无线鼠标蓝牙静音鼠标办公学习笔记本电脑通用轻...", "brand": "键鼠", "cost": 228.0, "sales": 2160.0, "roi": 9.48, "ctr": 7.08, "cvr": 11.49, "cpc": 0.71, "category": ""}, {"id": "646270719013", "name": "联想拯救者固态硬盘升级 PM9C1b 1T台式机笔记本原配s...", "brand": "固态硬盘", "cost": 211.0, "sales": 11300.0, "roi": 53.78, "ctr": 4.85, "cvr": 1.78, "cpc": 0.75, "category": ""}, {"id": "655918693919", "name": "联想拯救者游戏鼠标M6X 无线蓝牙三模鼠标游戏鼠标办公游戏鼠...", "brand": "键鼠", "cost": 208.0, "sales": 1616.0, "roi": 7.78, "ctr": 7.38, "cvr": 4.92, "cpc": 0.68, "category": ""}, {"id": "993741607069", "name": "联想生态品牌异能者typec扩展坞hdmi投屏转换拓展usb...", "brand": "异能者", "cost": 206.0, "sales": 990.0, "roi": 4.79, "ctr": 8.08, "cvr": 10.05, "cpc": 1.04, "category": ""}, {"id": "862136460564", "name": "联想生态品牌异能者蓝牙耳机入耳式高清音质低延迟适用苹果小米", "brand": "异能者", "cost": 206.0, "sales": 457.0, "roi": 2.22, "ctr": 8.88, "cvr": 6.9, "cpc": 1.42, "category": ""}, {"id": "553189240060", "name": "联想天逸510S 家用办公台式机主机小机箱可选 台式机电脑办...", "brand": "BOX", "cost": 205.0, "sales": 13500.0, "roi": 65.88, "ctr": 6.54, "cvr": 1.49, "cpc": 0.76, "category": ""}, {"id": "797487981383", "name": "【政府补贴20%】联想拯救者刃7000K/超能版/刃9000...", "brand": "GAMING", "cost": 200.0, "sales": 29800.0, "roi": 148.89, "ctr": 8.32, "cvr": 0.38, "cpc": 0.25, "category": "DT"}, {"id": "1058674337732", "name": "【新品】联想M25无线蓝牙鼠标4800DPI静音按键双模充电...", "brand": "服务", "cost": 192.0, "sales": 190.0, "roi": 0.99, "ctr": 6.44, "cvr": 2.15, "cpc": 0.82, "category": ""}, {"id": "828845229745", "name": "联想生态品牌异能者蓝牙耳机佩戴舒适半入耳式高清音质适苹果小米", "brand": "异能者", "cost": 185.0, "sales": 389.0, "roi": 2.1, "ctr": 5.81, "cvr": 4.97, "cpc": 1.02, "category": ""}, {"id": "925750770652", "name": "【新国标3C认证】联想拯救者C245W氮化镓Slim方口充电...", "brand": "电源", "cost": 180.0, "sales": 2534.0, "roi": 14.08, "ctr": 10.61, "cvr": 2.93, "cpc": 0.59, "category": ""}, {"id": "855523041117", "name": "联想生态品牌异能者电脑音响台式重低音蓝牙5.4桌面电竞音箱新...", "brand": "异能者", "cost": 176.0, "sales": 0.0, "roi": 0.0, "ctr": 3.03, "cvr": 0.0, "cpc": 1.65, "category": ""}, {"id": "890637952662", "name": "联想键鼠套装MK23Lite无线键盘鼠标套装一键服务键盘商务...", "brand": "包键鼠", "cost": 170.0, "sales": 714.0, "roi": 4.2, "ctr": 5.53, "cvr": 8.47, "cpc": 1.44, "category": ""}, {"id": "826766626180", "name": "联想生态品牌异能者无线鼠标蓝牙无线充电笔记本电脑办公家用多彩", "brand": "异能者", "cost": 169.0, "sales": 363.0, "roi": 2.15, "ctr": 5.43, "cvr": 4.17, "cpc": 0.7, "category": ""}, {"id": "706125509007", "name": "联想生态品牌异能者笔记本散热器电脑支架降温底座拯救者小新游戏...", "brand": "异能者", "cost": 160.0, "sales": 505.0, "roi": 3.15, "ctr": 6.02, "cvr": 7.55, "cpc": 1.51, "category": ""}]
+;
+
+/* ---------- 品类分级阈值(部分为真实数据,部分暂无数据) ---------- */
+const categoryThresholds = {
+  'NB':   {warn: 11,   pass: null, source:'警戒线来自实际数据;及格线暂无'},
+  '平板': {warn: 3,    pass: 15,   source:'警戒线/及格线均来自实际数据'},
+  '服务': {warn: 1.8,  pass: null, source:'警戒线来自实际数据;及格线暂无'},
+  'IP':   {warn: null, pass: 2,    source:'及格线来自实际数据;警戒线暂无'},
+  '手机': {warn: 1.5,  pass: null, source:'警戒线来自实际数据;及格线暂无'},
+  'DT':   {warn: 12,   pass: null, source:'警戒线来自实际数据;及格线暂无'},
+};
+
+function classifyTier(category, roi){
+  const th = categoryThresholds[category];
+  if(!th) return {tier:'none', label:'未分类', reason:'该主体未标注品类,无法判定'};
+  if(th.warn!=null && roi < th.warn) return {tier:'red', label:'🔴 需紧急处理', reason:`ROI ${roi} 低于品类警戒线 ${th.warn}`};
+  if(th.pass!=null && roi < th.pass) return {tier:'yellow', label:'🟡 效率偏低', reason:`ROI ${roi} 低于品类及格线 ${th.pass}`};
+  if(th.pass!=null && roi >= th.pass*3) return {tier:'green', label:'🟢 表现优异', reason:`ROI ${roi} 达到及格线 ${th.pass} 的3倍以上`};
+  return {tier:'mid', label:'—', reason:'在正常区间,暂无明确优秀线数据'};
+}
+
+
+/* ---------- 历史数据查询(演示数据,结构对应真实 categoryScenarioRecords) ---------- */
+const historyRecords = [{"date": "2026-07-01", "category": "NB", "scenario": "关键词推广", "cost": 992.67, "sales": 1973.57, "clicks": 1109, "impressions": 31130, "orders": 65}, {"date": "2026-07-01", "category": "NB", "scenario": "货品全站推广", "cost": 895.98, "sales": 48010.81, "clicks": 1610, "impressions": 32502, "orders": 6}, {"date": "2026-07-01", "category": "NB", "scenario": "人群推广", "cost": 273.29, "sales": 8354.1, "clicks": 610, "impressions": 17984, "orders": 32}, {"date": "2026-07-01", "category": "平板", "scenario": "关键词推广", "cost": 873.91, "sales": 5156.76, "clicks": 598, "impressions": 7800, "orders": 1}, {"date": "2026-07-01", "category": "平板", "scenario": "货品全站推广", "cost": 864.06, "sales": 15211.27, "clicks": 853, "impressions": 27619, "orders": 65}, {"date": "2026-07-01", "category": "平板", "scenario": "人群推广", "cost": 265.17, "sales": 735.12, "clicks": 461, "impressions": 5811, "orders": 22}, {"date": "2026-07-01", "category": "服务", "scenario": "关键词推广", "cost": 853.21, "sales": 15680.66, "clicks": 624, "impressions": 7081, "orders": 19}, {"date": "2026-07-01", "category": "服务", "scenario": "货品全站推广", "cost": 683.57, "sales": 14232.21, "clicks": 451, "impressions": 5615, "orders": 21}, {"date": "2026-07-01", "category": "服务", "scenario": "人群推广", "cost": 273.12, "sales": 443.19, "clicks": 337, "impressions": 8371, "orders": 2}, {"date": "2026-07-01", "category": "IP", "scenario": "关键词推广", "cost": 420.58, "sales": 1251.03, "clicks": 467, "impressions": 7240, "orders": 14}, {"date": "2026-07-01", "category": "IP", "scenario": "货品全站推广", "cost": 399.39, "sales": 2249.73, "clicks": 453, "impressions": 5294, "orders": 23}, {"date": "2026-07-01", "category": "IP", "scenario": "人群推广", "cost": 166.43, "sales": 781.04, "clicks": 97, "impressions": 3085, "orders": 3}, {"date": "2026-07-01", "category": "手机", "scenario": "关键词推广", "cost": 252.73, "sales": 4089.17, "clicks": 180, "impressions": 2650, "orders": 12}, {"date": "2026-07-01", "category": "手机", "scenario": "货品全站推广", "cost": 207.32, "sales": 1267.07, "clicks": 452, "impressions": 10741, "orders": 10}, {"date": "2026-07-01", "category": "手机", "scenario": "人群推广", "cost": 60.54, "sales": 1428.82, "clicks": 30, "impressions": 713, "orders": 1}, {"date": "2026-07-01", "category": "DT", "scenario": "关键词推广", "cost": 152.72, "sales": 8386.71, "clicks": 124, "impressions": 3217, "orders": 2}, {"date": "2026-07-01", "category": "DT", "scenario": "货品全站推广", "cost": 146.1, "sales": 2357.05, "clicks": 100, "impressions": 1207, "orders": 3}, {"date": "2026-07-01", "category": "DT", "scenario": "人群推广", "cost": 46.78, "sales": 2799.95, "clicks": 35, "impressions": 1327, "orders": 0}, {"date": "2026-07-01", "category": "选件", "scenario": "关键词推广", "cost": 84.85, "sales": 1346.78, "clicks": 46, "impressions": 928, "orders": 0}, {"date": "2026-07-01", "category": "选件", "scenario": "货品全站推广", "cost": 86.29, "sales": 2149.05, "clicks": 63, "impressions": 716, "orders": 4}, {"date": "2026-07-01", "category": "选件", "scenario": "人群推广", "cost": 26.81, "sales": 486.81, "clicks": 16, "impressions": 277, "orders": 0}, {"date": "2026-07-01", "category": "显示器", "scenario": "关键词推广", "cost": 65.63, "sales": 212.18, "clicks": 55, "impressions": 1062, "orders": 4}, {"date": "2026-07-01", "category": "显示器", "scenario": "货品全站推广", "cost": 64.01, "sales": 445.06, "clicks": 49, "impressions": 1507, "orders": 3}, {"date": "2026-07-01", "category": "显示器", "scenario": "人群推广", "cost": 23.95, "sales": 187.09, "clicks": 15, "impressions": 239, "orders": 0}, {"date": "2026-07-01", "category": "SIOT", "scenario": "关键词推广", "cost": 4.63, "sales": 63.5, "clicks": 2, "impressions": 35, "orders": 0}, {"date": "2026-07-01", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.41, "sales": 3.33, "clicks": 1, "impressions": 12, "orders": 0}, {"date": "2026-07-01", "category": "SIOT", "scenario": "人群推广", "cost": 1.27, "sales": 2.44, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-01", "category": "其他", "scenario": "关键词推广", "cost": 2.75, "sales": 6.04, "clicks": 1, "impressions": 13, "orders": 0}, {"date": "2026-07-01", "category": "其他", "scenario": "货品全站推广", "cost": 2.43, "sales": 33.95, "clicks": 2, "impressions": 24, "orders": 0}, {"date": "2026-07-01", "category": "其他", "scenario": "人群推广", "cost": 0.81, "sales": 11.11, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-02", "category": "NB", "scenario": "关键词推广", "cost": 1138.76, "sales": 44602.66, "clicks": 958, "impressions": 17037, "orders": 10}, {"date": "2026-07-02", "category": "NB", "scenario": "货品全站推广", "cost": 730.98, "sales": 15069.95, "clicks": 501, "impressions": 13875, "orders": 9}, {"date": "2026-07-02", "category": "NB", "scenario": "人群推广", "cost": 253.08, "sales": 9629.85, "clicks": 311, "impressions": 3729, "orders": 21}, {"date": "2026-07-02", "category": "平板", "scenario": "关键词推广", "cost": 695.54, "sales": 4403.54, "clicks": 433, "impressions": 12372, "orders": 5}, {"date": "2026-07-02", "category": "平板", "scenario": "货品全站推广", "cost": 907.43, "sales": 13149.17, "clicks": 725, "impressions": 9676, "orders": 47}, {"date": "2026-07-02", "category": "平板", "scenario": "人群推广", "cost": 246.84, "sales": 709.62, "clicks": 209, "impressions": 4209, "orders": 8}, {"date": "2026-07-02", "category": "服务", "scenario": "关键词推广", "cost": 827.45, "sales": 14064.52, "clicks": 381, "impressions": 14169, "orders": 12}, {"date": "2026-07-02", "category": "服务", "scenario": "货品全站推广", "cost": 621.15, "sales": 13423.66, "clicks": 732, "impressions": 21972, "orders": 27}, {"date": "2026-07-02", "category": "服务", "scenario": "人群推广", "cost": 242.02, "sales": 1772.64, "clicks": 284, "impressions": 3355, "orders": 10}, {"date": "2026-07-02", "category": "IP", "scenario": "关键词推广", "cost": 552.06, "sales": 7719.44, "clicks": 1124, "impressions": 12495, "orders": 75}, {"date": "2026-07-02", "category": "IP", "scenario": "货品全站推广", "cost": 510.74, "sales": 11847.12, "clicks": 264, "impressions": 8343, "orders": 10}, {"date": "2026-07-02", "category": "IP", "scenario": "人群推广", "cost": 138.86, "sales": 1433.8, "clicks": 274, "impressions": 5888, "orders": 21}, {"date": "2026-07-02", "category": "手机", "scenario": "关键词推广", "cost": 186.58, "sales": 3677.44, "clicks": 153, "impressions": 3084, "orders": 11}, {"date": "2026-07-02", "category": "手机", "scenario": "货品全站推广", "cost": 225.13, "sales": 3178.01, "clicks": 132, "impressions": 4280, "orders": 3}, {"date": "2026-07-02", "category": "手机", "scenario": "人群推广", "cost": 83.61, "sales": 1228.22, "clicks": 60, "impressions": 829, "orders": 0}, {"date": "2026-07-02", "category": "DT", "scenario": "关键词推广", "cost": 165.97, "sales": 5048.74, "clicks": 85, "impressions": 2740, "orders": 6}, {"date": "2026-07-02", "category": "DT", "scenario": "货品全站推广", "cost": 116.04, "sales": 1341.03, "clicks": 78, "impressions": 1159, "orders": 1}, {"date": "2026-07-02", "category": "DT", "scenario": "人群推广", "cost": 44.45, "sales": 2376.83, "clicks": 52, "impressions": 843, "orders": 2}, {"date": "2026-07-02", "category": "选件", "scenario": "关键词推广", "cost": 98.77, "sales": 1461.79, "clicks": 73, "impressions": 854, "orders": 1}, {"date": "2026-07-02", "category": "选件", "scenario": "货品全站推广", "cost": 99.66, "sales": 632.62, "clicks": 89, "impressions": 1327, "orders": 2}, {"date": "2026-07-02", "category": "选件", "scenario": "人群推广", "cost": 31.38, "sales": 593.73, "clicks": 59, "impressions": 1132, "orders": 4}, {"date": "2026-07-02", "category": "显示器", "scenario": "关键词推广", "cost": 75.27, "sales": 172.74, "clicks": 96, "impressions": 2489, "orders": 7}, {"date": "2026-07-02", "category": "显示器", "scenario": "货品全站推广", "cost": 64.13, "sales": 1413.56, "clicks": 60, "impressions": 1932, "orders": 4}, {"date": "2026-07-02", "category": "显示器", "scenario": "人群推广", "cost": 22.44, "sales": 347.51, "clicks": 10, "impressions": 152, "orders": 0}, {"date": "2026-07-02", "category": "SIOT", "scenario": "关键词推广", "cost": 4.73, "sales": 37.06, "clicks": 2, "impressions": 23, "orders": 0}, {"date": "2026-07-02", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.07, "sales": 9.59, "clicks": 2, "impressions": 51, "orders": 0}, {"date": "2026-07-02", "category": "SIOT", "scenario": "人群推广", "cost": 1.52, "sales": 8.34, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-02", "category": "其他", "scenario": "关键词推广", "cost": 3.26, "sales": 69.21, "clicks": 5, "impressions": 100, "orders": 0}, {"date": "2026-07-02", "category": "其他", "scenario": "货品全站推广", "cost": 1.92, "sales": 37.23, "clicks": 1, "impressions": 26, "orders": 0}, {"date": "2026-07-02", "category": "其他", "scenario": "人群推广", "cost": 0.94, "sales": 10.32, "clicks": 2, "impressions": 79, "orders": 0}, {"date": "2026-07-03", "category": "NB", "scenario": "关键词推广", "cost": 1101.3, "sales": 36301.74, "clicks": 578, "impressions": 9510, "orders": 7}, {"date": "2026-07-03", "category": "NB", "scenario": "货品全站推广", "cost": 695.48, "sales": 13103.8, "clicks": 344, "impressions": 4542, "orders": 23}, {"date": "2026-07-03", "category": "NB", "scenario": "人群推广", "cost": 366.41, "sales": 4763.17, "clicks": 431, "impressions": 15848, "orders": 27}, {"date": "2026-07-03", "category": "平板", "scenario": "关键词推广", "cost": 1001.53, "sales": 10472.24, "clicks": 660, "impressions": 21415, "orders": 49}, {"date": "2026-07-03", "category": "平板", "scenario": "货品全站推广", "cost": 883.72, "sales": 21577.83, "clicks": 475, "impressions": 5814, "orders": 1}, {"date": "2026-07-03", "category": "平板", "scenario": "人群推广", "cost": 315.34, "sales": 2724.08, "clicks": 151, "impressions": 1982, "orders": 10}, {"date": "2026-07-03", "category": "服务", "scenario": "关键词推广", "cost": 854.41, "sales": 6012.26, "clicks": 470, "impressions": 17049, "orders": 32}, {"date": "2026-07-03", "category": "服务", "scenario": "货品全站推广", "cost": 773.51, "sales": 4602.1, "clicks": 413, "impressions": 7908, "orders": 10}, {"date": "2026-07-03", "category": "服务", "scenario": "人群推广", "cost": 283.11, "sales": 1720.2, "clicks": 639, "impressions": 19063, "orders": 17}, {"date": "2026-07-03", "category": "IP", "scenario": "关键词推广", "cost": 552.69, "sales": 13368.9, "clicks": 612, "impressions": 9429, "orders": 20}, {"date": "2026-07-03", "category": "IP", "scenario": "货品全站推广", "cost": 512.99, "sales": 6995.79, "clicks": 245, "impressions": 8726, "orders": 19}, {"date": "2026-07-03", "category": "IP", "scenario": "人群推广", "cost": 136.41, "sales": 3285.04, "clicks": 155, "impressions": 5618, "orders": 5}, {"date": "2026-07-03", "category": "手机", "scenario": "关键词推广", "cost": 228.9, "sales": 1873.57, "clicks": 153, "impressions": 2741, "orders": 4}, {"date": "2026-07-03", "category": "手机", "scenario": "货品全站推广", "cost": 191.13, "sales": 1288.35, "clicks": 114, "impressions": 5666, "orders": 8}, {"date": "2026-07-03", "category": "手机", "scenario": "人群推广", "cost": 70.51, "sales": 1278.07, "clicks": 40, "impressions": 597, "orders": 1}, {"date": "2026-07-03", "category": "DT", "scenario": "关键词推广", "cost": 129.84, "sales": 5196.47, "clicks": 130, "impressions": 3097, "orders": 8}, {"date": "2026-07-03", "category": "DT", "scenario": "货品全站推广", "cost": 156.0, "sales": 2865.59, "clicks": 163, "impressions": 3354, "orders": 5}, {"date": "2026-07-03", "category": "DT", "scenario": "人群推广", "cost": 48.56, "sales": 392.06, "clicks": 41, "impressions": 477, "orders": 2}, {"date": "2026-07-03", "category": "选件", "scenario": "关键词推广", "cost": 120.51, "sales": 1877.56, "clicks": 127, "impressions": 2176, "orders": 0}, {"date": "2026-07-03", "category": "选件", "scenario": "货品全站推广", "cost": 82.51, "sales": 910.27, "clicks": 57, "impressions": 865, "orders": 2}, {"date": "2026-07-03", "category": "选件", "scenario": "人群推广", "cost": 33.27, "sales": 190.83, "clicks": 26, "impressions": 312, "orders": 1}, {"date": "2026-07-03", "category": "显示器", "scenario": "关键词推广", "cost": 52.84, "sales": 136.19, "clicks": 39, "impressions": 606, "orders": 1}, {"date": "2026-07-03", "category": "显示器", "scenario": "货品全站推广", "cost": 62.62, "sales": 1183.7, "clicks": 38, "impressions": 1063, "orders": 0}, {"date": "2026-07-03", "category": "显示器", "scenario": "人群推广", "cost": 16.3, "sales": 105.93, "clicks": 12, "impressions": 150, "orders": 0}, {"date": "2026-07-03", "category": "SIOT", "scenario": "关键词推广", "cost": 4.0, "sales": 63.72, "clicks": 5, "impressions": 72, "orders": 0}, {"date": "2026-07-03", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.28, "sales": 54.36, "clicks": 8, "impressions": 110, "orders": 0}, {"date": "2026-07-03", "category": "SIOT", "scenario": "人群推广", "cost": 1.14, "sales": 12.44, "clicks": 1, "impressions": 11, "orders": 0}, {"date": "2026-07-03", "category": "其他", "scenario": "关键词推广", "cost": 2.22, "sales": 14.66, "clicks": 1, "impressions": 19, "orders": 0}, {"date": "2026-07-03", "category": "其他", "scenario": "货品全站推广", "cost": 2.64, "sales": 65.22, "clicks": 1, "impressions": 11, "orders": 0}, {"date": "2026-07-03", "category": "其他", "scenario": "人群推广", "cost": 0.97, "sales": 17.58, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-04", "category": "NB", "scenario": "关键词推广", "cost": 1098.54, "sales": 49156.92, "clicks": 875, "impressions": 22939, "orders": 18}, {"date": "2026-07-04", "category": "NB", "scenario": "货品全站推广", "cost": 881.73, "sales": 40617.7, "clicks": 658, "impressions": 10301, "orders": 15}, {"date": "2026-07-04", "category": "NB", "scenario": "人群推广", "cost": 253.97, "sales": 4444.68, "clicks": 285, "impressions": 6724, "orders": 12}, {"date": "2026-07-04", "category": "平板", "scenario": "关键词推广", "cost": 720.94, "sales": 4445.25, "clicks": 437, "impressions": 6292, "orders": 3}, {"date": "2026-07-04", "category": "平板", "scenario": "货品全站推广", "cost": 730.88, "sales": 10081.74, "clicks": 636, "impressions": 18446, "orders": 22}, {"date": "2026-07-04", "category": "平板", "scenario": "人群推广", "cost": 336.44, "sales": 4982.66, "clicks": 203, "impressions": 2538, "orders": 12}, {"date": "2026-07-04", "category": "服务", "scenario": "关键词推广", "cost": 712.35, "sales": 459.08, "clicks": 689, "impressions": 9471, "orders": 47}, {"date": "2026-07-04", "category": "服务", "scenario": "货品全站推广", "cost": 801.34, "sales": 8627.24, "clicks": 459, "impressions": 7882, "orders": 22}, {"date": "2026-07-04", "category": "服务", "scenario": "人群推广", "cost": 219.86, "sales": 1291.86, "clicks": 185, "impressions": 8396, "orders": 5}, {"date": "2026-07-04", "category": "IP", "scenario": "关键词推广", "cost": 513.94, "sales": 5347.94, "clicks": 737, "impressions": 13980, "orders": 8}, {"date": "2026-07-04", "category": "IP", "scenario": "货品全站推广", "cost": 446.26, "sales": 517.96, "clicks": 402, "impressions": 6755, "orders": 1}, {"date": "2026-07-04", "category": "IP", "scenario": "人群推广", "cost": 168.78, "sales": 645.52, "clicks": 137, "impressions": 5824, "orders": 4}, {"date": "2026-07-04", "category": "手机", "scenario": "关键词推广", "cost": 181.69, "sales": 1545.77, "clicks": 102, "impressions": 2191, "orders": 6}, {"date": "2026-07-04", "category": "手机", "scenario": "货品全站推广", "cost": 211.86, "sales": 1415.36, "clicks": 387, "impressions": 18120, "orders": 17}, {"date": "2026-07-04", "category": "手机", "scenario": "人群推广", "cost": 84.56, "sales": 767.3, "clicks": 53, "impressions": 709, "orders": 2}, {"date": "2026-07-04", "category": "DT", "scenario": "关键词推广", "cost": 177.92, "sales": 10141.78, "clicks": 234, "impressions": 10921, "orders": 3}, {"date": "2026-07-04", "category": "DT", "scenario": "货品全站推广", "cost": 118.92, "sales": 4796.38, "clicks": 84, "impressions": 2382, "orders": 4}, {"date": "2026-07-04", "category": "DT", "scenario": "人群推广", "cost": 59.6, "sales": 624.81, "clicks": 39, "impressions": 539, "orders": 0}, {"date": "2026-07-04", "category": "选件", "scenario": "关键词推广", "cost": 116.75, "sales": 2817.84, "clicks": 196, "impressions": 8991, "orders": 5}, {"date": "2026-07-04", "category": "选件", "scenario": "货品全站推广", "cost": 98.11, "sales": 2352.21, "clicks": 88, "impressions": 1256, "orders": 0}, {"date": "2026-07-04", "category": "选件", "scenario": "人群推广", "cost": 36.99, "sales": 586.94, "clicks": 63, "impressions": 850, "orders": 4}, {"date": "2026-07-04", "category": "显示器", "scenario": "关键词推广", "cost": 64.53, "sales": 223.65, "clicks": 29, "impressions": 387, "orders": 0}, {"date": "2026-07-04", "category": "显示器", "scenario": "货品全站推广", "cost": 53.21, "sales": 509.7, "clicks": 40, "impressions": 911, "orders": 2}, {"date": "2026-07-04", "category": "显示器", "scenario": "人群推广", "cost": 23.52, "sales": 72.58, "clicks": 11, "impressions": 170, "orders": 0}, {"date": "2026-07-04", "category": "SIOT", "scenario": "关键词推广", "cost": 4.53, "sales": 50.6, "clicks": 2, "impressions": 22, "orders": 0}, {"date": "2026-07-04", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.19, "sales": 57.34, "clicks": 3, "impressions": 59, "orders": 0}, {"date": "2026-07-04", "category": "SIOT", "scenario": "人群推广", "cost": 1.24, "sales": 26.5, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-04", "category": "其他", "scenario": "关键词推广", "cost": 2.46, "sales": 29.24, "clicks": 1, "impressions": 21, "orders": 0}, {"date": "2026-07-04", "category": "其他", "scenario": "货品全站推广", "cost": 2.84, "sales": 14.07, "clicks": 3, "impressions": 39, "orders": 0}, {"date": "2026-07-04", "category": "其他", "scenario": "人群推广", "cost": 1.08, "sales": 19.09, "clicks": 1, "impressions": 48, "orders": 0}, {"date": "2026-07-05", "category": "NB", "scenario": "关键词推广", "cost": 765.24, "sales": 33168.9, "clicks": 598, "impressions": 8183, "orders": 33}, {"date": "2026-07-05", "category": "NB", "scenario": "货品全站推广", "cost": 884.74, "sales": 26280.2, "clicks": 484, "impressions": 18254, "orders": 9}, {"date": "2026-07-05", "category": "NB", "scenario": "人群推广", "cost": 338.06, "sales": 6328.23, "clicks": 233, "impressions": 4385, "orders": 10}, {"date": "2026-07-05", "category": "平板", "scenario": "关键词推广", "cost": 828.97, "sales": 15564.26, "clicks": 832, "impressions": 12023, "orders": 19}, {"date": "2026-07-05", "category": "平板", "scenario": "货品全站推广", "cost": 678.64, "sales": 2345.43, "clicks": 908, "impressions": 32006, "orders": 39}, {"date": "2026-07-05", "category": "平板", "scenario": "人群推广", "cost": 318.55, "sales": 1604.27, "clicks": 403, "impressions": 7477, "orders": 23}, {"date": "2026-07-05", "category": "服务", "scenario": "关键词推广", "cost": 909.15, "sales": 12140.43, "clicks": 999, "impressions": 36949, "orders": 17}, {"date": "2026-07-05", "category": "服务", "scenario": "货品全站推广", "cost": 588.34, "sales": 2880.7, "clicks": 1382, "impressions": 24081, "orders": 32}, {"date": "2026-07-05", "category": "服务", "scenario": "人群推广", "cost": 302.8, "sales": 4256.55, "clicks": 182, "impressions": 6310, "orders": 12}, {"date": "2026-07-05", "category": "IP", "scenario": "关键词推广", "cost": 474.56, "sales": 10384.15, "clicks": 331, "impressions": 6262, "orders": 12}, {"date": "2026-07-05", "category": "IP", "scenario": "货品全站推广", "cost": 364.84, "sales": 641.65, "clicks": 174, "impressions": 3255, "orders": 11}, {"date": "2026-07-05", "category": "IP", "scenario": "人群推广", "cost": 151.9, "sales": 351.65, "clicks": 99, "impressions": 4167, "orders": 1}, {"date": "2026-07-05", "category": "手机", "scenario": "关键词推广", "cost": 213.76, "sales": 1698.1, "clicks": 97, "impressions": 3428, "orders": 5}, {"date": "2026-07-05", "category": "手机", "scenario": "货品全站推广", "cost": 193.54, "sales": 3846.25, "clicks": 240, "impressions": 4241, "orders": 8}, {"date": "2026-07-05", "category": "手机", "scenario": "人群推广", "cost": 67.6, "sales": 1458.41, "clicks": 30, "impressions": 725, "orders": 1}, {"date": "2026-07-05", "category": "DT", "scenario": "关键词推广", "cost": 167.76, "sales": 7471.24, "clicks": 79, "impressions": 2286, "orders": 1}, {"date": "2026-07-05", "category": "DT", "scenario": "货品全站推广", "cost": 152.29, "sales": 1499.28, "clicks": 213, "impressions": 8434, "orders": 0}, {"date": "2026-07-05", "category": "DT", "scenario": "人群推广", "cost": 52.19, "sales": 1870.06, "clicks": 56, "impressions": 1546, "orders": 3}, {"date": "2026-07-05", "category": "选件", "scenario": "关键词推广", "cost": 111.52, "sales": 1296.28, "clicks": 68, "impressions": 803, "orders": 4}, {"date": "2026-07-05", "category": "选件", "scenario": "货品全站推广", "cost": 96.02, "sales": 1603.44, "clicks": 46, "impressions": 924, "orders": 2}, {"date": "2026-07-05", "category": "选件", "scenario": "人群推广", "cost": 36.34, "sales": 826.96, "clicks": 19, "impressions": 760, "orders": 0}, {"date": "2026-07-05", "category": "显示器", "scenario": "关键词推广", "cost": 56.59, "sales": 1066.69, "clicks": 39, "impressions": 970, "orders": 0}, {"date": "2026-07-05", "category": "显示器", "scenario": "货品全站推广", "cost": 59.49, "sales": 1049.61, "clicks": 28, "impressions": 508, "orders": 1}, {"date": "2026-07-05", "category": "显示器", "scenario": "人群推广", "cost": 16.81, "sales": 24.82, "clicks": 14, "impressions": 328, "orders": 0}, {"date": "2026-07-05", "category": "SIOT", "scenario": "关键词推广", "cost": 3.41, "sales": 82.07, "clicks": 1, "impressions": 16, "orders": 0}, {"date": "2026-07-05", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.5, "sales": 76.37, "clicks": 5, "impressions": 219, "orders": 0}, {"date": "2026-07-05", "category": "SIOT", "scenario": "人群推广", "cost": 1.37, "sales": 22.55, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-05", "category": "其他", "scenario": "关键词推广", "cost": 2.93, "sales": 36.76, "clicks": 5, "impressions": 112, "orders": 0}, {"date": "2026-07-05", "category": "其他", "scenario": "货品全站推广", "cost": 2.64, "sales": 56.8, "clicks": 2, "impressions": 29, "orders": 0}, {"date": "2026-07-05", "category": "其他", "scenario": "人群推广", "cost": 1.1, "sales": 22.48, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-06", "category": "NB", "scenario": "关键词推广", "cost": 862.84, "sales": 50239.71, "clicks": 765, "impressions": 13655, "orders": 60}, {"date": "2026-07-06", "category": "NB", "scenario": "货品全站推广", "cost": 889.03, "sales": 29146.24, "clicks": 777, "impressions": 23452, "orders": 23}, {"date": "2026-07-06", "category": "NB", "scenario": "人群推广", "cost": 346.91, "sales": 13082.61, "clicks": 196, "impressions": 5722, "orders": 8}, {"date": "2026-07-06", "category": "平板", "scenario": "关键词推广", "cost": 1017.91, "sales": 11435.04, "clicks": 614, "impressions": 21543, "orders": 47}, {"date": "2026-07-06", "category": "平板", "scenario": "货品全站推广", "cost": 798.19, "sales": 5078.71, "clicks": 1165, "impressions": 19894, "orders": 52}, {"date": "2026-07-06", "category": "平板", "scenario": "人群推广", "cost": 234.65, "sales": 5821.74, "clicks": 114, "impressions": 2179, "orders": 1}, {"date": "2026-07-06", "category": "服务", "scenario": "关键词推广", "cost": 861.47, "sales": 10949.46, "clicks": 509, "impressions": 9151, "orders": 11}, {"date": "2026-07-06", "category": "服务", "scenario": "货品全站推广", "cost": 766.51, "sales": 18791.75, "clicks": 913, "impressions": 15583, "orders": 29}, {"date": "2026-07-06", "category": "服务", "scenario": "人群推广", "cost": 297.03, "sales": 3847.1, "clicks": 149, "impressions": 1851, "orders": 3}, {"date": "2026-07-06", "category": "IP", "scenario": "关键词推广", "cost": 537.14, "sales": 5729.18, "clicks": 258, "impressions": 4645, "orders": 17}, {"date": "2026-07-06", "category": "IP", "scenario": "货品全站推广", "cost": 383.15, "sales": 2994.17, "clicks": 263, "impressions": 2924, "orders": 10}, {"date": "2026-07-06", "category": "IP", "scenario": "人群推广", "cost": 134.32, "sales": 1839.54, "clicks": 131, "impressions": 2234, "orders": 5}, {"date": "2026-07-06", "category": "手机", "scenario": "关键词推广", "cost": 203.95, "sales": 1709.82, "clicks": 275, "impressions": 3995, "orders": 12}, {"date": "2026-07-06", "category": "手机", "scenario": "货品全站推广", "cost": 163.28, "sales": 3184.1, "clicks": 341, "impressions": 4727, "orders": 19}, {"date": "2026-07-06", "category": "手机", "scenario": "人群推广", "cost": 78.82, "sales": 784.96, "clicks": 49, "impressions": 632, "orders": 3}, {"date": "2026-07-06", "category": "DT", "scenario": "关键词推广", "cost": 159.73, "sales": 431.7, "clicks": 122, "impressions": 1989, "orders": 8}, {"date": "2026-07-06", "category": "DT", "scenario": "货品全站推广", "cost": 165.64, "sales": 4422.29, "clicks": 122, "impressions": 2346, "orders": 7}, {"date": "2026-07-06", "category": "DT", "scenario": "人群推广", "cost": 51.24, "sales": 2021.9, "clicks": 75, "impressions": 1418, "orders": 5}, {"date": "2026-07-06", "category": "选件", "scenario": "关键词推广", "cost": 95.14, "sales": 1662.22, "clicks": 60, "impressions": 753, "orders": 4}, {"date": "2026-07-06", "category": "选件", "scenario": "货品全站推广", "cost": 105.38, "sales": 1033.8, "clicks": 108, "impressions": 1536, "orders": 6}, {"date": "2026-07-06", "category": "选件", "scenario": "人群推广", "cost": 39.71, "sales": 54.78, "clicks": 75, "impressions": 1168, "orders": 5}, {"date": "2026-07-06", "category": "显示器", "scenario": "关键词推广", "cost": 75.31, "sales": 1415.51, "clicks": 63, "impressions": 2342, "orders": 3}, {"date": "2026-07-06", "category": "显示器", "scenario": "货品全站推广", "cost": 63.93, "sales": 726.89, "clicks": 38, "impressions": 456, "orders": 0}, {"date": "2026-07-06", "category": "显示器", "scenario": "人群推广", "cost": 23.28, "sales": 178.97, "clicks": 21, "impressions": 695, "orders": 0}, {"date": "2026-07-06", "category": "SIOT", "scenario": "关键词推广", "cost": 4.27, "sales": 85.04, "clicks": 6, "impressions": 235, "orders": 0}, {"date": "2026-07-06", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.88, "sales": 24.83, "clicks": 1, "impressions": 33, "orders": 0}, {"date": "2026-07-06", "category": "SIOT", "scenario": "人群推广", "cost": 1.23, "sales": 8.31, "clicks": 2, "impressions": 26, "orders": 0}, {"date": "2026-07-06", "category": "其他", "scenario": "关键词推广", "cost": 2.98, "sales": 13.02, "clicks": 2, "impressions": 45, "orders": 0}, {"date": "2026-07-06", "category": "其他", "scenario": "货品全站推广", "cost": 2.61, "sales": 28.44, "clicks": 3, "impressions": 37, "orders": 0}, {"date": "2026-07-06", "category": "其他", "scenario": "人群推广", "cost": 0.88, "sales": 10.86, "clicks": 1, "impressions": 16, "orders": 0}, {"date": "2026-07-07", "category": "NB", "scenario": "关键词推广", "cost": 1137.75, "sales": 20554.85, "clicks": 526, "impressions": 7960, "orders": 12}, {"date": "2026-07-07", "category": "NB", "scenario": "货品全站推广", "cost": 855.55, "sales": 35338.55, "clicks": 491, "impressions": 20953, "orders": 24}, {"date": "2026-07-07", "category": "NB", "scenario": "人群推广", "cost": 311.36, "sales": 16905.99, "clicks": 340, "impressions": 4478, "orders": 16}, {"date": "2026-07-07", "category": "平板", "scenario": "关键词推广", "cost": 801.44, "sales": 12900.89, "clicks": 528, "impressions": 7828, "orders": 30}, {"date": "2026-07-07", "category": "平板", "scenario": "货品全站推广", "cost": 815.02, "sales": 17147.42, "clicks": 532, "impressions": 6391, "orders": 27}, {"date": "2026-07-07", "category": "平板", "scenario": "人群推广", "cost": 261.7, "sales": 2957.25, "clicks": 181, "impressions": 2539, "orders": 1}, {"date": "2026-07-07", "category": "服务", "scenario": "关键词推广", "cost": 684.21, "sales": 12872.24, "clicks": 955, "impressions": 32648, "orders": 42}, {"date": "2026-07-07", "category": "服务", "scenario": "货品全站推广", "cost": 806.64, "sales": 10894.39, "clicks": 394, "impressions": 5042, "orders": 8}, {"date": "2026-07-07", "category": "服务", "scenario": "人群推广", "cost": 286.34, "sales": 3523.49, "clicks": 154, "impressions": 2131, "orders": 4}, {"date": "2026-07-07", "category": "IP", "scenario": "关键词推广", "cost": 395.97, "sales": 9539.27, "clicks": 606, "impressions": 6913, "orders": 41}, {"date": "2026-07-07", "category": "IP", "scenario": "货品全站推广", "cost": 465.22, "sales": 11401.88, "clicks": 217, "impressions": 2843, "orders": 6}, {"date": "2026-07-07", "category": "IP", "scenario": "人群推广", "cost": 179.09, "sales": 150.62, "clicks": 131, "impressions": 2527, "orders": 7}, {"date": "2026-07-07", "category": "手机", "scenario": "关键词推广", "cost": 223.76, "sales": 3316.51, "clicks": 118, "impressions": 1374, "orders": 1}, {"date": "2026-07-07", "category": "手机", "scenario": "货品全站推广", "cost": 163.3, "sales": 181.77, "clicks": 81, "impressions": 1365, "orders": 5}, {"date": "2026-07-07", "category": "手机", "scenario": "人群推广", "cost": 60.86, "sales": 124.69, "clicks": 32, "impressions": 382, "orders": 0}, {"date": "2026-07-07", "category": "DT", "scenario": "关键词推广", "cost": 153.61, "sales": 1354.34, "clicks": 73, "impressions": 1767, "orders": 2}, {"date": "2026-07-07", "category": "DT", "scenario": "货品全站推广", "cost": 117.11, "sales": 6241.02, "clicks": 181, "impressions": 3497, "orders": 9}, {"date": "2026-07-07", "category": "DT", "scenario": "人群推广", "cost": 59.05, "sales": 3353.18, "clicks": 51, "impressions": 708, "orders": 0}, {"date": "2026-07-07", "category": "选件", "scenario": "关键词推广", "cost": 98.57, "sales": 288.42, "clicks": 76, "impressions": 1564, "orders": 5}, {"date": "2026-07-07", "category": "选件", "scenario": "货品全站推广", "cost": 72.35, "sales": 692.97, "clicks": 60, "impressions": 693, "orders": 4}, {"date": "2026-07-07", "category": "选件", "scenario": "人群推广", "cost": 28.13, "sales": 486.63, "clicks": 20, "impressions": 226, "orders": 0}, {"date": "2026-07-07", "category": "显示器", "scenario": "关键词推广", "cost": 59.04, "sales": 304.07, "clicks": 95, "impressions": 1197, "orders": 3}, {"date": "2026-07-07", "category": "显示器", "scenario": "货品全站推广", "cost": 58.87, "sales": 954.97, "clicks": 39, "impressions": 1814, "orders": 2}, {"date": "2026-07-07", "category": "显示器", "scenario": "人群推广", "cost": 18.28, "sales": 65.54, "clicks": 12, "impressions": 483, "orders": 0}, {"date": "2026-07-07", "category": "SIOT", "scenario": "关键词推广", "cost": 3.62, "sales": 20.96, "clicks": 1, "impressions": 23, "orders": 0}, {"date": "2026-07-07", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.34, "sales": 2.47, "clicks": 2, "impressions": 66, "orders": 0}, {"date": "2026-07-07", "category": "SIOT", "scenario": "人群推广", "cost": 1.23, "sales": 5.87, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-07", "category": "其他", "scenario": "关键词推广", "cost": 3.12, "sales": 19.75, "clicks": 3, "impressions": 93, "orders": 0}, {"date": "2026-07-07", "category": "其他", "scenario": "货品全站推广", "cost": 2.72, "sales": 36.42, "clicks": 1, "impressions": 18, "orders": 0}, {"date": "2026-07-07", "category": "其他", "scenario": "人群推广", "cost": 0.93, "sales": 2.95, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-08", "category": "NB", "scenario": "关键词推广", "cost": 1051.73, "sales": 54779.74, "clicks": 785, "impressions": 15077, "orders": 60}, {"date": "2026-07-08", "category": "NB", "scenario": "货品全站推广", "cost": 671.16, "sales": 19463.25, "clicks": 597, "impressions": 8775, "orders": 24}, {"date": "2026-07-08", "category": "NB", "scenario": "人群推广", "cost": 367.89, "sales": 1792.62, "clicks": 674, "impressions": 10770, "orders": 4}, {"date": "2026-07-08", "category": "平板", "scenario": "关键词推广", "cost": 772.35, "sales": 12365.62, "clicks": 556, "impressions": 13001, "orders": 44}, {"date": "2026-07-08", "category": "平板", "scenario": "货品全站推广", "cost": 772.0, "sales": 8967.57, "clicks": 518, "impressions": 19226, "orders": 29}, {"date": "2026-07-08", "category": "平板", "scenario": "人群推广", "cost": 329.91, "sales": 5426.18, "clicks": 184, "impressions": 2611, "orders": 3}, {"date": "2026-07-08", "category": "服务", "scenario": "关键词推广", "cost": 735.85, "sales": 4487.28, "clicks": 728, "impressions": 14069, "orders": 25}, {"date": "2026-07-08", "category": "服务", "scenario": "货品全站推广", "cost": 549.5, "sales": 6020.17, "clicks": 344, "impressions": 7445, "orders": 4}, {"date": "2026-07-08", "category": "服务", "scenario": "人群推广", "cost": 297.15, "sales": 637.32, "clicks": 156, "impressions": 5880, "orders": 1}, {"date": "2026-07-08", "category": "IP", "scenario": "关键词推广", "cost": 526.42, "sales": 10732.83, "clicks": 375, "impressions": 6142, "orders": 17}, {"date": "2026-07-08", "category": "IP", "scenario": "货品全站推广", "cost": 391.85, "sales": 1369.39, "clicks": 378, "impressions": 5677, "orders": 22}, {"date": "2026-07-08", "category": "IP", "scenario": "人群推广", "cost": 184.49, "sales": 3351.44, "clicks": 86, "impressions": 1386, "orders": 2}, {"date": "2026-07-08", "category": "手机", "scenario": "关键词推广", "cost": 215.14, "sales": 1228.9, "clicks": 135, "impressions": 3781, "orders": 1}, {"date": "2026-07-08", "category": "手机", "scenario": "货品全站推广", "cost": 212.95, "sales": 2024.14, "clicks": 120, "impressions": 1993, "orders": 7}, {"date": "2026-07-08", "category": "手机", "scenario": "人群推广", "cost": 79.85, "sales": 1946.45, "clicks": 42, "impressions": 667, "orders": 2}, {"date": "2026-07-08", "category": "DT", "scenario": "关键词推广", "cost": 126.76, "sales": 7070.74, "clicks": 66, "impressions": 1704, "orders": 1}, {"date": "2026-07-08", "category": "DT", "scenario": "货品全站推广", "cost": 154.93, "sales": 2925.79, "clicks": 153, "impressions": 7489, "orders": 10}, {"date": "2026-07-08", "category": "DT", "scenario": "人群推广", "cost": 54.9, "sales": 1336.63, "clicks": 83, "impressions": 1290, "orders": 0}, {"date": "2026-07-08", "category": "选件", "scenario": "关键词推广", "cost": 113.46, "sales": 654.75, "clicks": 98, "impressions": 2234, "orders": 3}, {"date": "2026-07-08", "category": "选件", "scenario": "货品全站推广", "cost": 99.87, "sales": 1950.71, "clicks": 70, "impressions": 2697, "orders": 0}, {"date": "2026-07-08", "category": "选件", "scenario": "人群推广", "cost": 29.0, "sales": 453.47, "clicks": 17, "impressions": 435, "orders": 0}, {"date": "2026-07-08", "category": "显示器", "scenario": "关键词推广", "cost": 61.42, "sales": 695.89, "clicks": 68, "impressions": 933, "orders": 0}, {"date": "2026-07-08", "category": "显示器", "scenario": "货品全站推广", "cost": 53.25, "sales": 396.16, "clicks": 32, "impressions": 591, "orders": 1}, {"date": "2026-07-08", "category": "显示器", "scenario": "人群推广", "cost": 16.49, "sales": 167.93, "clicks": 11, "impressions": 535, "orders": 0}, {"date": "2026-07-08", "category": "SIOT", "scenario": "关键词推广", "cost": 3.62, "sales": 13.98, "clicks": 4, "impressions": 93, "orders": 0}, {"date": "2026-07-08", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.09, "sales": 19.65, "clicks": 3, "impressions": 43, "orders": 0}, {"date": "2026-07-08", "category": "SIOT", "scenario": "人群推广", "cost": 1.59, "sales": 32.2, "clicks": 3, "impressions": 37, "orders": 0}, {"date": "2026-07-08", "category": "其他", "scenario": "关键词推广", "cost": 2.18, "sales": 50.29, "clicks": 1, "impressions": 16, "orders": 0}, {"date": "2026-07-08", "category": "其他", "scenario": "货品全站推广", "cost": 2.69, "sales": 28.87, "clicks": 4, "impressions": 186, "orders": 0}, {"date": "2026-07-08", "category": "其他", "scenario": "人群推广", "cost": 1.04, "sales": 16.27, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-09", "category": "NB", "scenario": "关键词推广", "cost": 1076.88, "sales": 16128.79, "clicks": 737, "impressions": 13003, "orders": 24}, {"date": "2026-07-09", "category": "NB", "scenario": "货品全站推广", "cost": 762.22, "sales": 15778.75, "clicks": 762, "impressions": 23985, "orders": 31}, {"date": "2026-07-09", "category": "NB", "scenario": "人群推广", "cost": 258.97, "sales": 7987.19, "clicks": 127, "impressions": 2856, "orders": 7}, {"date": "2026-07-09", "category": "平板", "scenario": "关键词推广", "cost": 977.01, "sales": 19997.84, "clicks": 1183, "impressions": 39106, "orders": 20}, {"date": "2026-07-09", "category": "平板", "scenario": "货品全站推广", "cost": 796.03, "sales": 15224.29, "clicks": 503, "impressions": 15524, "orders": 31}, {"date": "2026-07-09", "category": "平板", "scenario": "人群推广", "cost": 284.93, "sales": 5409.09, "clicks": 161, "impressions": 3130, "orders": 11}, {"date": "2026-07-09", "category": "服务", "scenario": "关键词推广", "cost": 773.12, "sales": 12420.02, "clicks": 507, "impressions": 6298, "orders": 25}, {"date": "2026-07-09", "category": "服务", "scenario": "货品全站推广", "cost": 565.89, "sales": 1229.69, "clicks": 473, "impressions": 11481, "orders": 11}, {"date": "2026-07-09", "category": "服务", "scenario": "人群推广", "cost": 201.78, "sales": 2608.97, "clicks": 210, "impressions": 4067, "orders": 1}, {"date": "2026-07-09", "category": "IP", "scenario": "关键词推广", "cost": 545.86, "sales": 1299.1, "clicks": 279, "impressions": 3493, "orders": 13}, {"date": "2026-07-09", "category": "IP", "scenario": "货品全站推广", "cost": 424.84, "sales": 5028.59, "clicks": 303, "impressions": 4017, "orders": 21}, {"date": "2026-07-09", "category": "IP", "scenario": "人群推广", "cost": 155.32, "sales": 3159.28, "clicks": 98, "impressions": 2305, "orders": 3}, {"date": "2026-07-09", "category": "手机", "scenario": "关键词推广", "cost": 176.14, "sales": 355.08, "clicks": 300, "impressions": 3617, "orders": 8}, {"date": "2026-07-09", "category": "手机", "scenario": "货品全站推广", "cost": 202.31, "sales": 2602.0, "clicks": 284, "impressions": 7605, "orders": 10}, {"date": "2026-07-09", "category": "手机", "scenario": "人群推广", "cost": 67.5, "sales": 898.24, "clicks": 98, "impressions": 2125, "orders": 2}, {"date": "2026-07-09", "category": "DT", "scenario": "关键词推广", "cost": 153.64, "sales": 3170.03, "clicks": 104, "impressions": 1382, "orders": 5}, {"date": "2026-07-09", "category": "DT", "scenario": "货品全站推广", "cost": 115.16, "sales": 705.14, "clicks": 71, "impressions": 1779, "orders": 4}, {"date": "2026-07-09", "category": "DT", "scenario": "人群推广", "cost": 57.02, "sales": 3103.45, "clicks": 28, "impressions": 646, "orders": 1}, {"date": "2026-07-09", "category": "选件", "scenario": "关键词推广", "cost": 86.28, "sales": 782.61, "clicks": 40, "impressions": 580, "orders": 1}, {"date": "2026-07-09", "category": "选件", "scenario": "货品全站推广", "cost": 94.82, "sales": 2226.47, "clicks": 99, "impressions": 2135, "orders": 6}, {"date": "2026-07-09", "category": "选件", "scenario": "人群推广", "cost": 38.83, "sales": 656.92, "clicks": 20, "impressions": 278, "orders": 1}, {"date": "2026-07-09", "category": "显示器", "scenario": "关键词推广", "cost": 62.52, "sales": 1020.8, "clicks": 53, "impressions": 1169, "orders": 1}, {"date": "2026-07-09", "category": "显示器", "scenario": "货品全站推广", "cost": 47.23, "sales": 271.46, "clicks": 22, "impressions": 407, "orders": 0}, {"date": "2026-07-09", "category": "显示器", "scenario": "人群推广", "cost": 17.32, "sales": 41.4, "clicks": 9, "impressions": 332, "orders": 0}, {"date": "2026-07-09", "category": "SIOT", "scenario": "关键词推广", "cost": 4.76, "sales": 105.44, "clicks": 10, "impressions": 229, "orders": 0}, {"date": "2026-07-09", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.09, "sales": 30.06, "clicks": 4, "impressions": 51, "orders": 0}, {"date": "2026-07-09", "category": "SIOT", "scenario": "人群推广", "cost": 1.57, "sales": 7.15, "clicks": 1, "impressions": 20, "orders": 0}, {"date": "2026-07-09", "category": "其他", "scenario": "关键词推广", "cost": 2.45, "sales": 27.89, "clicks": 2, "impressions": 27, "orders": 0}, {"date": "2026-07-09", "category": "其他", "scenario": "货品全站推广", "cost": 2.5, "sales": 20.2, "clicks": 1, "impressions": 18, "orders": 0}, {"date": "2026-07-09", "category": "其他", "scenario": "人群推广", "cost": 0.87, "sales": 20.62, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-10", "category": "NB", "scenario": "关键词推广", "cost": 886.9, "sales": 28277.79, "clicks": 414, "impressions": 5363, "orders": 26}, {"date": "2026-07-10", "category": "NB", "scenario": "货品全站推广", "cost": 699.48, "sales": 10754.64, "clicks": 450, "impressions": 5542, "orders": 20}, {"date": "2026-07-10", "category": "NB", "scenario": "人群推广", "cost": 257.4, "sales": 13083.79, "clicks": 133, "impressions": 3328, "orders": 8}, {"date": "2026-07-10", "category": "平板", "scenario": "关键词推广", "cost": 771.52, "sales": 17498.08, "clicks": 1159, "impressions": 22894, "orders": 87}, {"date": "2026-07-10", "category": "平板", "scenario": "货品全站推广", "cost": 668.82, "sales": 7726.63, "clicks": 649, "impressions": 29679, "orders": 3}, {"date": "2026-07-10", "category": "平板", "scenario": "人群推广", "cost": 285.92, "sales": 1794.59, "clicks": 130, "impressions": 2811, "orders": 0}, {"date": "2026-07-10", "category": "服务", "scenario": "关键词推广", "cost": 894.04, "sales": 18828.32, "clicks": 569, "impressions": 7546, "orders": 7}, {"date": "2026-07-10", "category": "服务", "scenario": "货品全站推广", "cost": 605.77, "sales": 12617.68, "clicks": 366, "impressions": 12316, "orders": 20}, {"date": "2026-07-10", "category": "服务", "scenario": "人群推广", "cost": 244.96, "sales": 154.0, "clicks": 451, "impressions": 11895, "orders": 30}, {"date": "2026-07-10", "category": "IP", "scenario": "关键词推广", "cost": 486.68, "sales": 8914.64, "clicks": 360, "impressions": 12957, "orders": 8}, {"date": "2026-07-10", "category": "IP", "scenario": "货品全站推广", "cost": 386.56, "sales": 645.5, "clicks": 334, "impressions": 4419, "orders": 12}, {"date": "2026-07-10", "category": "IP", "scenario": "人群推广", "cost": 131.69, "sales": 2986.22, "clicks": 89, "impressions": 4207, "orders": 3}, {"date": "2026-07-10", "category": "手机", "scenario": "关键词推广", "cost": 184.46, "sales": 741.09, "clicks": 157, "impressions": 2490, "orders": 3}, {"date": "2026-07-10", "category": "手机", "scenario": "货品全站推广", "cost": 178.14, "sales": 2988.67, "clicks": 321, "impressions": 3638, "orders": 2}, {"date": "2026-07-10", "category": "手机", "scenario": "人群推广", "cost": 70.13, "sales": 906.75, "clicks": 32, "impressions": 544, "orders": 1}, {"date": "2026-07-10", "category": "DT", "scenario": "关键词推广", "cost": 157.96, "sales": 6053.41, "clicks": 72, "impressions": 1907, "orders": 0}, {"date": "2026-07-10", "category": "DT", "scenario": "货品全站推广", "cost": 160.29, "sales": 3368.61, "clicks": 93, "impressions": 1453, "orders": 5}, {"date": "2026-07-10", "category": "DT", "scenario": "人群推广", "cost": 58.86, "sales": 1193.97, "clicks": 122, "impressions": 2095, "orders": 7}, {"date": "2026-07-10", "category": "选件", "scenario": "关键词推广", "cost": 87.79, "sales": 1719.72, "clicks": 71, "impressions": 1033, "orders": 3}, {"date": "2026-07-10", "category": "选件", "scenario": "货品全站推广", "cost": 103.47, "sales": 211.7, "clicks": 57, "impressions": 1095, "orders": 1}, {"date": "2026-07-10", "category": "选件", "scenario": "人群推广", "cost": 27.3, "sales": 147.07, "clicks": 57, "impressions": 667, "orders": 2}, {"date": "2026-07-10", "category": "显示器", "scenario": "关键词推广", "cost": 75.08, "sales": 1036.42, "clicks": 87, "impressions": 1196, "orders": 1}, {"date": "2026-07-10", "category": "显示器", "scenario": "货品全站推广", "cost": 51.49, "sales": 1010.78, "clicks": 26, "impressions": 601, "orders": 0}, {"date": "2026-07-10", "category": "显示器", "scenario": "人群推广", "cost": 19.41, "sales": 432.7, "clicks": 11, "impressions": 133, "orders": 0}, {"date": "2026-07-10", "category": "SIOT", "scenario": "关键词推广", "cost": 5.01, "sales": 63.41, "clicks": 3, "impressions": 35, "orders": 0}, {"date": "2026-07-10", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.18, "sales": 76.55, "clicks": 7, "impressions": 112, "orders": 0}, {"date": "2026-07-10", "category": "SIOT", "scenario": "人群推广", "cost": 1.41, "sales": 11.8, "clicks": 2, "impressions": 30, "orders": 0}, {"date": "2026-07-10", "category": "其他", "scenario": "关键词推广", "cost": 2.89, "sales": 31.62, "clicks": 1, "impressions": 22, "orders": 0}, {"date": "2026-07-10", "category": "其他", "scenario": "货品全站推广", "cost": 2.86, "sales": 26.13, "clicks": 1, "impressions": 25, "orders": 0}, {"date": "2026-07-10", "category": "其他", "scenario": "人群推广", "cost": 1.1, "sales": 2.57, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-11", "category": "NB", "scenario": "关键词推广", "cost": 1009.09, "sales": 57710.83, "clicks": 1535, "impressions": 24548, "orders": 96}, {"date": "2026-07-11", "category": "NB", "scenario": "货品全站推广", "cost": 661.66, "sales": 2977.72, "clicks": 367, "impressions": 8040, "orders": 11}, {"date": "2026-07-11", "category": "NB", "scenario": "人群推广", "cost": 321.01, "sales": 11717.87, "clicks": 197, "impressions": 2279, "orders": 6}, {"date": "2026-07-11", "category": "平板", "scenario": "关键词推广", "cost": 955.99, "sales": 13920.25, "clicks": 706, "impressions": 14750, "orders": 37}, {"date": "2026-07-11", "category": "平板", "scenario": "货品全站推广", "cost": 678.04, "sales": 2223.63, "clicks": 393, "impressions": 7154, "orders": 12}, {"date": "2026-07-11", "category": "平板", "scenario": "人群推广", "cost": 293.4, "sales": 2028.43, "clicks": 337, "impressions": 6577, "orders": 26}, {"date": "2026-07-11", "category": "服务", "scenario": "关键词推广", "cost": 681.06, "sales": 15632.87, "clicks": 530, "impressions": 18541, "orders": 36}, {"date": "2026-07-11", "category": "服务", "scenario": "货品全站推广", "cost": 654.23, "sales": 14731.71, "clicks": 544, "impressions": 20806, "orders": 30}, {"date": "2026-07-11", "category": "服务", "scenario": "人群推广", "cost": 288.63, "sales": 2404.26, "clicks": 281, "impressions": 11448, "orders": 12}, {"date": "2026-07-11", "category": "IP", "scenario": "关键词推广", "cost": 558.33, "sales": 11925.02, "clicks": 332, "impressions": 3909, "orders": 17}, {"date": "2026-07-11", "category": "IP", "scenario": "货品全站推广", "cost": 478.14, "sales": 6198.85, "clicks": 773, "impressions": 22689, "orders": 9}, {"date": "2026-07-11", "category": "IP", "scenario": "人群推广", "cost": 179.07, "sales": 204.85, "clicks": 128, "impressions": 2793, "orders": 8}, {"date": "2026-07-11", "category": "手机", "scenario": "关键词推广", "cost": 212.74, "sales": 3295.92, "clicks": 383, "impressions": 9195, "orders": 30}, {"date": "2026-07-11", "category": "手机", "scenario": "货品全站推广", "cost": 202.68, "sales": 2711.77, "clicks": 113, "impressions": 1455, "orders": 0}, {"date": "2026-07-11", "category": "手机", "scenario": "人群推广", "cost": 83.72, "sales": 1359.39, "clicks": 69, "impressions": 1020, "orders": 1}, {"date": "2026-07-11", "category": "DT", "scenario": "关键词推广", "cost": 186.61, "sales": 8756.79, "clicks": 120, "impressions": 3665, "orders": 9}, {"date": "2026-07-11", "category": "DT", "scenario": "货品全站推广", "cost": 138.06, "sales": 7550.14, "clicks": 276, "impressions": 9619, "orders": 3}, {"date": "2026-07-11", "category": "DT", "scenario": "人群推广", "cost": 45.5, "sales": 896.27, "clicks": 27, "impressions": 610, "orders": 2}, {"date": "2026-07-11", "category": "选件", "scenario": "关键词推广", "cost": 120.15, "sales": 2550.23, "clicks": 141, "impressions": 2187, "orders": 6}, {"date": "2026-07-11", "category": "选件", "scenario": "货品全站推广", "cost": 76.04, "sales": 602.18, "clicks": 55, "impressions": 996, "orders": 0}, {"date": "2026-07-11", "category": "选件", "scenario": "人群推广", "cost": 40.75, "sales": 174.32, "clicks": 25, "impressions": 354, "orders": 1}, {"date": "2026-07-11", "category": "显示器", "scenario": "关键词推广", "cost": 71.1, "sales": 1017.34, "clicks": 37, "impressions": 1682, "orders": 0}, {"date": "2026-07-11", "category": "显示器", "scenario": "货品全站推广", "cost": 58.35, "sales": 853.71, "clicks": 37, "impressions": 502, "orders": 1}, {"date": "2026-07-11", "category": "显示器", "scenario": "人群推广", "cost": 21.86, "sales": 277.66, "clicks": 14, "impressions": 347, "orders": 1}, {"date": "2026-07-11", "category": "SIOT", "scenario": "关键词推广", "cost": 4.12, "sales": 83.29, "clicks": 2, "impressions": 48, "orders": 0}, {"date": "2026-07-11", "category": "SIOT", "scenario": "货品全站推广", "cost": 2.98, "sales": 33.59, "clicks": 2, "impressions": 58, "orders": 0}, {"date": "2026-07-11", "category": "SIOT", "scenario": "人群推广", "cost": 1.27, "sales": 22.99, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-11", "category": "其他", "scenario": "关键词推广", "cost": 2.32, "sales": 22.22, "clicks": 1, "impressions": 23, "orders": 0}, {"date": "2026-07-11", "category": "其他", "scenario": "货品全站推广", "cost": 2.21, "sales": 14.53, "clicks": 3, "impressions": 74, "orders": 0}, {"date": "2026-07-11", "category": "其他", "scenario": "人群推广", "cost": 0.97, "sales": 6.39, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-12", "category": "NB", "scenario": "关键词推广", "cost": 967.32, "sales": 18482.14, "clicks": 545, "impressions": 9931, "orders": 22}, {"date": "2026-07-12", "category": "NB", "scenario": "货品全站推广", "cost": 831.03, "sales": 15671.7, "clicks": 1881, "impressions": 21829, "orders": 77}, {"date": "2026-07-12", "category": "NB", "scenario": "人群推广", "cost": 375.69, "sales": 4997.09, "clicks": 362, "impressions": 15379, "orders": 14}, {"date": "2026-07-12", "category": "平板", "scenario": "关键词推广", "cost": 1000.86, "sales": 16543.59, "clicks": 802, "impressions": 13931, "orders": 54}, {"date": "2026-07-12", "category": "平板", "scenario": "货品全站推广", "cost": 738.68, "sales": 16339.72, "clicks": 432, "impressions": 5879, "orders": 13}, {"date": "2026-07-12", "category": "平板", "scenario": "人群推广", "cost": 273.2, "sales": 3953.72, "clicks": 364, "impressions": 6198, "orders": 2}, {"date": "2026-07-12", "category": "服务", "scenario": "关键词推广", "cost": 753.24, "sales": 14483.22, "clicks": 833, "impressions": 9334, "orders": 45}, {"date": "2026-07-12", "category": "服务", "scenario": "货品全站推广", "cost": 556.46, "sales": 13571.8, "clicks": 501, "impressions": 6623, "orders": 14}, {"date": "2026-07-12", "category": "服务", "scenario": "人群推广", "cost": 298.91, "sales": 5678.29, "clicks": 394, "impressions": 7081, "orders": 16}, {"date": "2026-07-12", "category": "IP", "scenario": "关键词推广", "cost": 381.36, "sales": 1471.05, "clicks": 381, "impressions": 7166, "orders": 14}, {"date": "2026-07-12", "category": "IP", "scenario": "货品全站推广", "cost": 443.29, "sales": 5820.35, "clicks": 447, "impressions": 7104, "orders": 6}, {"date": "2026-07-12", "category": "IP", "scenario": "人群推广", "cost": 193.03, "sales": 3592.93, "clicks": 205, "impressions": 4707, "orders": 13}, {"date": "2026-07-12", "category": "手机", "scenario": "关键词推广", "cost": 210.98, "sales": 3768.97, "clicks": 224, "impressions": 2905, "orders": 6}, {"date": "2026-07-12", "category": "手机", "scenario": "货品全站推广", "cost": 199.02, "sales": 4877.48, "clicks": 137, "impressions": 1808, "orders": 8}, {"date": "2026-07-12", "category": "手机", "scenario": "人群推广", "cost": 75.07, "sales": 86.54, "clicks": 59, "impressions": 672, "orders": 3}, {"date": "2026-07-12", "category": "DT", "scenario": "关键词推广", "cost": 179.46, "sales": 6257.63, "clicks": 105, "impressions": 1725, "orders": 1}, {"date": "2026-07-12", "category": "DT", "scenario": "货品全站推广", "cost": 150.33, "sales": 5618.48, "clicks": 78, "impressions": 2570, "orders": 4}, {"date": "2026-07-12", "category": "DT", "scenario": "人群推广", "cost": 42.38, "sales": 2412.19, "clicks": 70, "impressions": 3282, "orders": 1}, {"date": "2026-07-12", "category": "选件", "scenario": "关键词推广", "cost": 86.73, "sales": 1510.6, "clicks": 76, "impressions": 1023, "orders": 5}, {"date": "2026-07-12", "category": "选件", "scenario": "货品全站推广", "cost": 105.92, "sales": 1962.49, "clicks": 206, "impressions": 6944, "orders": 3}, {"date": "2026-07-12", "category": "选件", "scenario": "人群推广", "cost": 31.51, "sales": 526.99, "clicks": 23, "impressions": 548, "orders": 0}, {"date": "2026-07-12", "category": "显示器", "scenario": "关键词推广", "cost": 72.99, "sales": 648.66, "clicks": 70, "impressions": 945, "orders": 4}, {"date": "2026-07-12", "category": "显示器", "scenario": "货品全站推广", "cost": 58.4, "sales": 1021.19, "clicks": 38, "impressions": 1135, "orders": 0}, {"date": "2026-07-12", "category": "显示器", "scenario": "人群推广", "cost": 21.13, "sales": 126.98, "clicks": 9, "impressions": 220, "orders": 0}, {"date": "2026-07-12", "category": "SIOT", "scenario": "关键词推广", "cost": 3.62, "sales": 64.34, "clicks": 3, "impressions": 67, "orders": 0}, {"date": "2026-07-12", "category": "SIOT", "scenario": "货品全站推广", "cost": 4.17, "sales": 30.02, "clicks": 6, "impressions": 89, "orders": 0}, {"date": "2026-07-12", "category": "SIOT", "scenario": "人群推广", "cost": 1.68, "sales": 34.52, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-12", "category": "其他", "scenario": "关键词推广", "cost": 2.51, "sales": 45.17, "clicks": 2, "impressions": 39, "orders": 0}, {"date": "2026-07-12", "category": "其他", "scenario": "货品全站推广", "cost": 2.44, "sales": 13.3, "clicks": 1, "impressions": 11, "orders": 0}, {"date": "2026-07-12", "category": "其他", "scenario": "人群推广", "cost": 0.78, "sales": 12.16, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-13", "category": "NB", "scenario": "关键词推广", "cost": 948.16, "sales": 36464.05, "clicks": 1917, "impressions": 39177, "orders": 111}, {"date": "2026-07-13", "category": "NB", "scenario": "货品全站推广", "cost": 685.66, "sales": 31787.6, "clicks": 1675, "impressions": 28620, "orders": 124}, {"date": "2026-07-13", "category": "NB", "scenario": "人群推广", "cost": 299.06, "sales": 16787.56, "clicks": 150, "impressions": 2807, "orders": 2}, {"date": "2026-07-13", "category": "平板", "scenario": "关键词推广", "cost": 1031.55, "sales": 8632.64, "clicks": 660, "impressions": 7898, "orders": 5}, {"date": "2026-07-13", "category": "平板", "scenario": "货品全站推广", "cost": 786.57, "sales": 10706.19, "clicks": 462, "impressions": 5399, "orders": 33}, {"date": "2026-07-13", "category": "平板", "scenario": "人群推广", "cost": 244.92, "sales": 5416.41, "clicks": 341, "impressions": 4041, "orders": 27}, {"date": "2026-07-13", "category": "服务", "scenario": "关键词推广", "cost": 717.84, "sales": 9071.28, "clicks": 344, "impressions": 3938, "orders": 25}, {"date": "2026-07-13", "category": "服务", "scenario": "货品全站推广", "cost": 778.84, "sales": 566.25, "clicks": 547, "impressions": 19882, "orders": 43}, {"date": "2026-07-13", "category": "服务", "scenario": "人群推广", "cost": 226.91, "sales": 5612.15, "clicks": 164, "impressions": 3005, "orders": 12}, {"date": "2026-07-13", "category": "IP", "scenario": "关键词推广", "cost": 549.91, "sales": 6580.5, "clicks": 736, "impressions": 26393, "orders": 10}, {"date": "2026-07-13", "category": "IP", "scenario": "货品全站推广", "cost": 415.89, "sales": 2829.3, "clicks": 565, "impressions": 7895, "orders": 35}, {"date": "2026-07-13", "category": "IP", "scenario": "人群推广", "cost": 163.55, "sales": 3116.19, "clicks": 228, "impressions": 2852, "orders": 16}, {"date": "2026-07-13", "category": "手机", "scenario": "关键词推广", "cost": 237.89, "sales": 3122.16, "clicks": 427, "impressions": 6387, "orders": 7}, {"date": "2026-07-13", "category": "手机", "scenario": "货品全站推广", "cost": 155.73, "sales": 1312.53, "clicks": 183, "impressions": 4783, "orders": 3}, {"date": "2026-07-13", "category": "手机", "scenario": "人群推广", "cost": 77.07, "sales": 1839.96, "clicks": 81, "impressions": 1147, "orders": 0}, {"date": "2026-07-13", "category": "DT", "scenario": "关键词推广", "cost": 170.85, "sales": 7127.82, "clicks": 333, "impressions": 11776, "orders": 8}, {"date": "2026-07-13", "category": "DT", "scenario": "货品全站推广", "cost": 136.36, "sales": 4145.34, "clicks": 67, "impressions": 967, "orders": 1}, {"date": "2026-07-13", "category": "DT", "scenario": "人群推广", "cost": 44.39, "sales": 2441.88, "clicks": 47, "impressions": 745, "orders": 0}, {"date": "2026-07-13", "category": "选件", "scenario": "关键词推广", "cost": 85.92, "sales": 365.42, "clicks": 49, "impressions": 785, "orders": 1}, {"date": "2026-07-13", "category": "选件", "scenario": "货品全站推广", "cost": 92.99, "sales": 1119.16, "clicks": 67, "impressions": 1007, "orders": 1}, {"date": "2026-07-13", "category": "选件", "scenario": "人群推广", "cost": 30.35, "sales": 576.38, "clicks": 15, "impressions": 582, "orders": 0}, {"date": "2026-07-13", "category": "显示器", "scenario": "关键词推广", "cost": 67.34, "sales": 162.53, "clicks": 47, "impressions": 1932, "orders": 2}, {"date": "2026-07-13", "category": "显示器", "scenario": "货品全站推广", "cost": 55.07, "sales": 800.23, "clicks": 82, "impressions": 1908, "orders": 3}, {"date": "2026-07-13", "category": "显示器", "scenario": "人群推广", "cost": 17.13, "sales": 94.77, "clicks": 11, "impressions": 417, "orders": 0}, {"date": "2026-07-13", "category": "SIOT", "scenario": "关键词推广", "cost": 4.71, "sales": 54.68, "clicks": 3, "impressions": 57, "orders": 0}, {"date": "2026-07-13", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.63, "sales": 73.58, "clicks": 2, "impressions": 41, "orders": 0}, {"date": "2026-07-13", "category": "SIOT", "scenario": "人群推广", "cost": 1.53, "sales": 22.44, "clicks": 3, "impressions": 68, "orders": 0}, {"date": "2026-07-13", "category": "其他", "scenario": "关键词推广", "cost": 3.37, "sales": 78.85, "clicks": 6, "impressions": 70, "orders": 0}, {"date": "2026-07-13", "category": "其他", "scenario": "货品全站推广", "cost": 2.36, "sales": 45.64, "clicks": 1, "impressions": 11, "orders": 0}, {"date": "2026-07-13", "category": "其他", "scenario": "人群推广", "cost": 0.89, "sales": 22.09, "clicks": 0, "impressions": 0, "orders": 0}, {"date": "2026-07-14", "category": "NB", "scenario": "关键词推广", "cost": 884.35, "sales": 36366.64, "clicks": 555, "impressions": 9610, "orders": 29}, {"date": "2026-07-14", "category": "NB", "scenario": "货品全站推广", "cost": 775.91, "sales": 8627.48, "clicks": 567, "impressions": 9944, "orders": 33}, {"date": "2026-07-14", "category": "NB", "scenario": "人群推广", "cost": 273.84, "sales": 193.51, "clicks": 621, "impressions": 15188, "orders": 33}, {"date": "2026-07-14", "category": "平板", "scenario": "关键词推广", "cost": 873.72, "sales": 11823.51, "clicks": 464, "impressions": 12431, "orders": 13}, {"date": "2026-07-14", "category": "平板", "scenario": "货品全站推广", "cost": 686.75, "sales": 16115.66, "clicks": 402, "impressions": 14409, "orders": 26}, {"date": "2026-07-14", "category": "平板", "scenario": "人群推广", "cost": 275.54, "sales": 5309.19, "clicks": 138, "impressions": 6541, "orders": 2}, {"date": "2026-07-14", "category": "服务", "scenario": "关键词推广", "cost": 620.1, "sales": 820.16, "clicks": 420, "impressions": 6066, "orders": 2}, {"date": "2026-07-14", "category": "服务", "scenario": "货品全站推广", "cost": 738.87, "sales": 7651.37, "clicks": 899, "impressions": 25533, "orders": 62}, {"date": "2026-07-14", "category": "服务", "scenario": "人群推广", "cost": 201.81, "sales": 2592.34, "clicks": 219, "impressions": 2840, "orders": 12}, {"date": "2026-07-14", "category": "IP", "scenario": "关键词推广", "cost": 438.59, "sales": 6644.19, "clicks": 272, "impressions": 6408, "orders": 6}, {"date": "2026-07-14", "category": "IP", "scenario": "货品全站推广", "cost": 357.2, "sales": 5956.38, "clicks": 447, "impressions": 10893, "orders": 3}, {"date": "2026-07-14", "category": "IP", "scenario": "人群推广", "cost": 190.1, "sales": 4192.27, "clicks": 93, "impressions": 1457, "orders": 3}, {"date": "2026-07-14", "category": "手机", "scenario": "关键词推广", "cost": 207.62, "sales": 5049.55, "clicks": 99, "impressions": 1477, "orders": 6}, {"date": "2026-07-14", "category": "手机", "scenario": "货品全站推广", "cost": 170.19, "sales": 1821.03, "clicks": 254, "impressions": 5479, "orders": 15}, {"date": "2026-07-14", "category": "手机", "scenario": "人群推广", "cost": 68.54, "sales": 1460.51, "clicks": 72, "impressions": 1035, "orders": 4}, {"date": "2026-07-14", "category": "DT", "scenario": "关键词推广", "cost": 189.2, "sales": 6425.6, "clicks": 88, "impressions": 1491, "orders": 1}, {"date": "2026-07-14", "category": "DT", "scenario": "货品全站推广", "cost": 126.21, "sales": 1590.06, "clicks": 80, "impressions": 946, "orders": 5}, {"date": "2026-07-14", "category": "DT", "scenario": "人群推广", "cost": 43.81, "sales": 1910.68, "clicks": 58, "impressions": 1495, "orders": 3}, {"date": "2026-07-14", "category": "选件", "scenario": "关键词推广", "cost": 107.02, "sales": 2344.13, "clicks": 144, "impressions": 1964, "orders": 8}, {"date": "2026-07-14", "category": "选件", "scenario": "货品全站推广", "cost": 93.37, "sales": 1143.33, "clicks": 47, "impressions": 1085, "orders": 3}, {"date": "2026-07-14", "category": "选件", "scenario": "人群推广", "cost": 26.87, "sales": 630.38, "clicks": 12, "impressions": 425, "orders": 0}, {"date": "2026-07-14", "category": "显示器", "scenario": "关键词推广", "cost": 61.24, "sales": 394.6, "clicks": 41, "impressions": 1194, "orders": 3}, {"date": "2026-07-14", "category": "显示器", "scenario": "货品全站推广", "cost": 56.2, "sales": 1095.91, "clicks": 51, "impressions": 889, "orders": 1}, {"date": "2026-07-14", "category": "显示器", "scenario": "人群推广", "cost": 18.45, "sales": 241.03, "clicks": 14, "impressions": 520, "orders": 1}, {"date": "2026-07-14", "category": "SIOT", "scenario": "关键词推广", "cost": 4.1, "sales": 86.4, "clicks": 2, "impressions": 43, "orders": 0}, {"date": "2026-07-14", "category": "SIOT", "scenario": "货品全站推广", "cost": 3.79, "sales": 22.44, "clicks": 5, "impressions": 130, "orders": 0}, {"date": "2026-07-14", "category": "SIOT", "scenario": "人群推广", "cost": 1.43, "sales": 15.34, "clicks": 2, "impressions": 46, "orders": 0}, {"date": "2026-07-14", "category": "其他", "scenario": "关键词推广", "cost": 3.17, "sales": 40.36, "clicks": 2, "impressions": 29, "orders": 0}, {"date": "2026-07-14", "category": "其他", "scenario": "货品全站推广", "cost": 2.81, "sales": 67.94, "clicks": 1, "impressions": 18, "orders": 0}, {"date": "2026-07-14", "category": "其他", "scenario": "人群推广", "cost": 1.04, "sales": 4.83, "clicks": 0, "impressions": 0, "orders": 0}];
+
+const rangeData = {
+  today:{cost:[10.9], sales:[240], labels:['今天']},
+  '7d':{cost:[11,12,10,10.5,10,10.5,10.9], sales:[460,480,195,208,200,215,240], labels:['07-08','07-09','07-10','07-11','07-12','07-13','07-14']},
+  '30d':{cost:[9,10,11,12,10.5,11,10,9.5,10,11,12,10.5,10,9,10,11,10.5,11,12,10,9.5,10,10.5,11,10,10.5,10,10.5,10.9,11], sales:Array.from({length:30},()=>180+Math.random()*300), labels:Array.from({length:30},(_,i)=>'D'+(i+1))},
+  '90d':{cost:Array.from({length:90},()=>9+Math.random()*4), sales:Array.from({length:90},()=>150+Math.random()*350), labels:Array.from({length:90},(_,i)=>'D'+(i+1))}
+};
+const kpiByRange = {
+  today:[['花费','¥10.9万','—'],['总成交金额','¥240万','—'],['点击率','5.9%','—'],['直接ROI','16.2','—'],['总ROI','22.0','—'],['CPC','¥0.86','—']],
+  '7d':[['花费','¥77.19万','↓ 28.9%'],['总成交金额','¥1990.85万','↓ 39.3%'],['点击率','5.86%','↑ 0.28pp'],['直接ROI','18.48','↓ 2.68'],['总ROI','25.79','↓ 4.41'],['CPC','¥0.84','↑ 19.0%']],
+  '30d':[['花费','¥312.4万','↑ 4.1%'],['总成交金额','¥7820.2万','↓ 6.2%'],['点击率','5.6%','↓ 0.1pp'],['直接ROI','17.9','↓ 0.8'],['总ROI','25.0','↓ 1.2'],['CPC','¥0.79','↑ 5.0%']],
+  '90d':[['花费','¥940.1万','↑ 9.8%'],['总成交金额','¥23140万','↑ 2.3%'],['点击率','5.4%','↓ 0.3pp'],['直接ROI','17.2','↓ 1.5'],['总ROI','24.3','↓ 2.0'],['CPC','¥0.81','↑ 7.4%']]
+};
+
+/* ---------- 总览 ---------- */
+let trendChart, scenarioDonut;
+function renderKpis(range){
+  document.getElementById('kpiRow').innerHTML = kpiByRange[range].map(([label,val,delta])=>{
+    const cls = delta.startsWith('↑') ? 'up' : (delta.startsWith('↓') ? 'down' : '');
+    return `<div class="kpi"><div class="label">${label}</div><div class="value">${val}</div><div class="delta ${cls}">${delta}</div></div>`;
+  }).join('');
+}
+function initOverviewCharts(){
+  renderKpis('7d');
+  const d = rangeData['7d'];
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels:d.labels, datasets:[
+      { label:'花费', data:d.cost, borderColor:'#d1483f', yAxisID:'y2', tension:.3 },
+      { label:'总成交', data:d.sales, borderColor:'#1f9e6d', backgroundColor:'rgba(31,158,109,.08)', fill:true, tension:.35 }
+    ]},
+    options:{ plugins:{legend:{position:'top', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{ y:{ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'}}, y2:{position:'right', ticks:{color:'#767a8a'}, grid:{display:false}}, x:{ticks:{color:'#767a8a'}, grid:{display:false}} } }
+  });
+
+  scenarioDonut = new Chart(document.getElementById('scenarioDonut'), {
+    type:'doughnut',
+    data:{ labels:['关键词推广','货品全站推广','人群推广'], datasets:[{ data:[50.8,39.75,9.45], backgroundColor:['#4f7cff','#8fd19e','#dba33c'] }]},
+    options:{
+      plugins:{ legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}} },
+      cutout:'62%',
+      onClick:(evt, elements)=>{
+        if(elements.length===0) return;
+        const i = elements[0].index;
+        const label = scenarioDonut.data.labels[i];
+        const val = scenarioDonut.data.datasets[0].data[i];
+        document.getElementById('donutDetail').textContent = `${label}:花费占比 ${val}%`;
+      }
+    }
+  });
+
+  document.querySelectorAll('#rangeFilters span').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('#rangeFilters span').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');
+      const r = el.dataset.range;
+      renderKpis(r);
+      const d2 = rangeData[r];
+      trendChart.data.labels = d2.labels;
+      trendChart.data.datasets[0].data = d2.cost;
+      trendChart.data.datasets[1].data = d2.sales;
+      trendChart.update();
+    });
+  });
+}
+
+/* ---------- 历史数据查询(T-1) ---------- */
+let historyChart, hSortKey='date', hSortDir=1, hLastResults=[];
+function initHistoryPage(){
+  const catSelect = document.getElementById('hCat');
+  const cats = [...new Set(historyRecords.map(r=>r.category))];
+  catSelect.innerHTML = '<option value="all">全部品类</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+  historyChart = new Chart(document.getElementById('historyChart'), {
+    type:'line',
+    data:{ labels:[], datasets:[
+      { label:'花费', data:[], borderColor:'#d1483f', yAxisID:'y2', tension:.3 },
+      { label:'成交金额', data:[], borderColor:'#1f9e6d', backgroundColor:'rgba(31,158,109,.08)', fill:true, tension:.35 }
+    ]},
+    options:{ plugins:{legend:{position:'top', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{ y:{ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'}}, y2:{position:'right', ticks:{color:'#767a8a'}, grid:{display:false}}, x:{ticks:{color:'#767a8a'}, grid:{display:false}} } }
+  });
+
+  document.querySelectorAll('#page-history th[data-hkey]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.hkey;
+      if(hSortKey===key){ hSortDir*=-1; } else { hSortKey=key; hSortDir=1; }
+      renderHistoryTable();
+    });
+  });
+
+  runHistoryQuery();
+}
+
+function runHistoryQuery(){
+  const start = document.getElementById('hStart').value;
+  const end = document.getElementById('hEnd').value;
+  const cat = document.getElementById('hCat').value;
+  const scenario = document.getElementById('hScenario').value;
+
+  hLastResults = historyRecords.filter(r=>{
+    if(start && r.date < start) return false;
+    if(end && r.date > end) return false;
+    if(cat!=='all' && r.category!==cat) return false;
+    if(scenario!=='all' && r.scenario!==scenario) return false;
+    return true;
+  }).map(r=>({...r, ctr: r.impressions? +(r.clicks/r.impressions*100).toFixed(2):0, roi: r.cost? +(r.sales/r.cost).toFixed(2):0 }));
+
+  // KPI:对筛选结果实际求和,不做比例推算
+  const totalCost = hLastResults.reduce((s,r)=>s+r.cost,0);
+  const totalSales = hLastResults.reduce((s,r)=>s+r.sales,0);
+  const totalClicks = hLastResults.reduce((s,r)=>s+r.clicks,0);
+  const totalImpr = hLastResults.reduce((s,r)=>s+r.impressions,0);
+  document.getElementById('hKpiRow').innerHTML = `
+    <div class="kpi"><div class="label">花费合计</div><div class="value">¥${totalCost.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+    <div class="kpi"><div class="label">成交金额合计</div><div class="value">¥${totalSales.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+    <div class="kpi"><div class="label">整体ROI</div><div class="value">${totalCost? (totalSales/totalCost).toFixed(2):'—'}</div></div>
+    <div class="kpi"><div class="label">整体CTR</div><div class="value">${totalImpr? (totalClicks/totalImpr*100).toFixed(2)+'%':'—'}</div></div>
+  `;
+
+  // 趋势图:按日期聚合(实际求和,不是抽样)
+  const byDate = {};
+  hLastResults.forEach(r=>{
+    if(!byDate[r.date]) byDate[r.date] = {cost:0, sales:0};
+    byDate[r.date].cost += r.cost;
+    byDate[r.date].sales += r.sales;
+  });
+  const dates = Object.keys(byDate).sort();
+  historyChart.data.labels = dates;
+  historyChart.data.datasets[0].data = dates.map(d=>+byDate[d].cost.toFixed(0));
+  historyChart.data.datasets[1].data = dates.map(d=>+byDate[d].sales.toFixed(0));
+  historyChart.update();
+
+  renderHistoryTable();
+}
+
+function renderHistoryTable(){
+  let rows = [...hLastResults];
+  rows.sort((a,b)=>{
+    const av=a[hSortKey], bv=b[hSortKey];
+    if(typeof av==='string') return av.localeCompare(bv)*hSortDir;
+    return (av-bv)*hSortDir;
+  });
+  document.getElementById('hResultCount').textContent = `共 ${rows.length} 条记录`;
+  document.getElementById('hTbody').innerHTML = rows.slice(0,200).map(r=>
+    `<tr><td>${r.date}</td><td>${r.category}</td><td>${r.scenario}</td>
+     <td>¥${r.cost.toLocaleString()}</td><td>¥${r.sales.toLocaleString()}</td>
+     <td>${r.clicks.toLocaleString()}</td><td>${r.impressions.toLocaleString()}</td>
+     <td>${r.ctr}%</td><td class="${r.roi>=1?'roi-pos':'roi-neg'}">${r.roi}</td></tr>`
+  ).join('');
+  document.getElementById('hNoResult').style.display = rows.length ? 'none' : 'block';
+}
+
+function exportHistoryCsv(){
+  const header = ['日期','品类','场景','花费','成交金额','点击量','展现量','CTR','ROI'];
+  const lines = [header.join(',')];
+  hLastResults.forEach(r=>{
+    lines.push([r.date,r.category,r.scenario,r.cost,r.sales,r.clicks,r.impressions,r.ctr,r.roi].join(','));
+  });
+  const blob = new Blob(['\ufeff'+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `历史数据查询_${document.getElementById('hStart').value}_${document.getElementById('hEnd').value}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function initKbPage(){
+  document.getElementById('kbRuleTbody').innerHTML = catData.map((r,i)=>{
+    const th = categoryThresholds[r.c];
+    const logic = th
+      ? `ROI < ${th.warn!=null?th.warn:'—'} → 🔴;ROI < ${th.pass!=null?th.pass:'—'} → 🟡;ROI ≥ ${th.pass!=null?(th.pass*3).toFixed(1):'—'} → 🟢`
+      : '暂无阈值数据,标"未分类"';
+    return `<tr><td>RULE-${String(i+1).padStart(3,'0')}</td><td>${r.c}</td>
+      <td>${th && th.warn!=null ? th.warn : '—'}</td><td>${th && th.pass!=null ? th.pass : '—'}</td>
+      <td style="font-size:12px; color:var(--sub);">${logic}</td></tr>`;
+  }).join('');
+}
+
+/* ---------- 品类明细 ---------- */
+let categoryRoiChart;
+let sortKey='cost', sortDir=-1;
+function renderCategory(highlightCat){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const roiF = document.getElementById('roiFilter').value;
+  let rows = catData.filter(r=>{
+    if(q && !r.c.toLowerCase().includes(q)) return false;
+    if(roiF==='high' && r.roi<10) return false;
+    if(roiF==='low' && r.roi>=1) return false;
+    return true;
+  });
+  rows.sort((a,b)=> (a[sortKey]-b[sortKey])*sortDir);
+  document.getElementById('tbody').innerHTML = rows.map(r=>
+    `<tr class="row ${r.c===highlightCat?'highlight':''}" data-cat="${r.c}"><td>${r.c}</td><td>¥${r.cost}万</td><td>¥${r.sales}万</td>
+     <td class="${r.roi>=1?'roi-pos':'roi-neg'}">${r.roi}</td><td>${r.ctr}%</td><td>${r.cvr}%</td><td>¥${r.cpc}</td></tr>`
+  ).join('');
+  document.getElementById('noResult').style.display = rows.length ? 'none' : 'block';
+}
+function initCategoryChart(){
+  categoryRoiChart = new Chart(document.getElementById('categoryRoiChart'), {
+    type:'bar',
+    data:{ labels:catData.map(r=>r.c), datasets:[{ label:'ROI', data:catData.map(r=>r.roi), backgroundColor:catData.map(r=>r.roi>=1?'#1f9e6d':'#d1483f') }]},
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{ y:{ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'}}, x:{ticks:{color:'#767a8a'}, grid:{display:false}} },
+      onClick:(evt, elements)=>{
+        if(elements.length===0) return;
+        const i = elements[0].index;
+        const cat = catData[i].c;
+        document.getElementById('search').value = cat;
+        document.getElementById('roiFilter').value = 'all';
+        renderCategory(cat);
+      }
+    }
+  });
+  document.getElementById('search').addEventListener('input', ()=>renderCategory());
+  document.getElementById('roiFilter').addEventListener('change', ()=>renderCategory());
+  document.querySelectorAll('#page-category th[data-key]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(sortKey===key){ sortDir*=-1; } else { sortKey=key; sortDir=-1; }
+      renderCategory();
+    });
+  });
+  renderCategory();
+}
+
+/* ---------- 主体明细 ---------- */
+let subjSortKey='cost', subjSortDir=-1;
+function renderSubjects(){
+  const q = document.getElementById('subjSearch').value.trim().toLowerCase();
+  const tierF = document.getElementById('subjTierFilter').value;
+  let rows = subjectsData.map(r=>({...r, tierInfo: classifyTier(r.category, r.roi)}));
+  rows = rows.filter(r=>{
+    if(q && !(r.name.toLowerCase().includes(q) || r.id.includes(q) || r.brand.toLowerCase().includes(q))) return false;
+    if(tierF!=='all' && r.tierInfo.tier!==tierF && !(tierF==='none' && r.tierInfo.tier==='none')) {
+      if(tierF!=='none') return r.tierInfo.tier===tierF;
+    }
+    if(tierF==='none' && r.tierInfo.tier!=='none') return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const av = a[subjSortKey], bv = b[subjSortKey];
+    if(typeof av === 'string') return av.localeCompare(bv)*subjSortDir;
+    return (av-bv)*subjSortDir;
+  });
+  document.getElementById('subjTbody').innerHTML = rows.map(r=>{
+    const tierColor = {red:'var(--red)', yellow:'#b8860b', green:'var(--green)', none:'var(--sub)', mid:'var(--sub)'}[r.tierInfo.tier];
+    return `<tr class="row" title="${r.tierInfo.reason}">
+      <td>${r.id}</td><td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</td><td>${r.brand}</td>
+      <td>¥${r.cost.toLocaleString()}</td><td>¥${r.sales.toLocaleString()}</td>
+      <td class="${r.roi>=1?'roi-pos':'roi-neg'}">${r.roi}</td>
+      <td>${r.ctr}%</td><td>${r.cvr}%</td><td>¥${r.cpc}</td>
+      <td style="color:${tierColor}; font-weight:600;">${r.tierInfo.label}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('subjNoResult').style.display = rows.length ? 'none' : 'block';
+}
+function initSubjectsPage(){
+  document.getElementById('subjSearch').addEventListener('input', renderSubjects);
+  document.getElementById('subjTierFilter').addEventListener('change', renderSubjects);
+  document.querySelectorAll('#page-subjects th[data-key]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(subjSortKey===key){ subjSortDir*=-1; } else { subjSortKey=key; subjSortDir=-1; }
+      renderSubjects();
+    });
+  });
+  renderSubjects();
+}
+
+/* ---------- 全景视图(CPC vs ROI 象限图,气泡=花费) ---------- */
+let panoramaChart;
+const PANORAMA_ROI_TH = 2; // 规则设定的阈值,不是编造数据
+function median(arr){
+  const s = [...arr].sort((a,b)=>a-b);
+  const mid = Math.floor(s.length/2);
+  return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+function classifyQuadrant(cpc, roi, cpcTh){
+  if(cpc < cpcTh && roi >= PANORAMA_ROI_TH) return {key:'green', label:'低成本高效'};
+  if(cpc >= cpcTh && roi >= PANORAMA_ROI_TH) return {key:'blue', label:'买量但仍赚钱'};
+  if(cpc < cpcTh && roi < PANORAMA_ROI_TH) return {key:'gray', label:'转化乏力'};
+  return {key:'red', label:'烧钱续命'};
+}
+const quadrantColor = {green:'#1f9e6d', blue:'#4f7cff', gray:'#9aa0bd', red:'#d1483f'};
+const quadrantVisible = {green:true, blue:true, gray:true, red:true};
+
+function initPanorama(){
+  const cpcTh = median(subjectsData.map(s=>s.cpc));
+  document.getElementById('cpcThLabel').textContent = '¥'+cpcTh.toFixed(2);
+
+  const groups = {green:[], blue:[], gray:[], red:[]};
+  subjectsData.forEach(s=>{
+    const q = classifyQuadrant(s.cpc, s.roi, cpcTh);
+    groups[q.key].push(s);
+  });
+
+  const maxCost = Math.max(...subjectsData.map(s=>s.cost));
+  const toBubble = arr => arr.map(s=>({ x:s.cpc, y:Math.min(s.roi, 12), r: 4 + (s.cost/maxCost)*22, _subj:s }));
+
+  const legendNames = {green:'低成本高效', blue:'买量但仍赚钱', gray:'转化乏力', red:'烧钱续命'};
+  document.getElementById('panoramaLegend').innerHTML = Object.keys(groups).map(k=>
+    `<span class="legend-toggle" data-q="${k}" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+      <span style="width:10px; height:10px; border-radius:50%; background:${quadrantColor[k]}; display:inline-block;"></span>
+      ${legendNames[k]} ${groups[k].length}
+    </span>`
+  ).join('');
+
+  const cpcMax = Math.max(...subjectsData.map(s=>s.cpc)) * 1.1;
+
+  panoramaChart = new Chart(document.getElementById('panoramaChart'), {
+    type:'bubble',
+    data:{ datasets: Object.keys(groups).map(k=>({
+      label: legendNames[k],
+      data: toBubble(groups[k]),
+      backgroundColor: quadrantColor[k]+'aa',
+      borderColor: quadrantColor[k],
+    }))},
+    options:{
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => {
+          const s = ctx.raw._subj;
+          return `${s.name.slice(0,18)}... · CPC ¥${s.cpc} · ROI ${s.roi} · 花费 ¥${s.cost.toLocaleString()}`;
+        }}}
+      },
+      scales:{
+        x:{ min:0, max:cpcMax, title:{display:true, text:'CPC(¥)→ 越右买量成本越高', color:'#767a8a', font:{size:11}}, ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'} },
+        y:{ min:0, max:12.5, title:{display:true, text:'ROI → 越高越赚钱', color:'#767a8a', font:{size:11}}, ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'} }
+      },
+      onClick:(evt, elements)=>{
+        if(elements.length===0) return;
+        const el = elements[0];
+        const subj = panoramaChart.data.datasets[el.datasetIndex].data[el.index]._subj;
+        switchPage('subjects');
+        document.getElementById('subjSearch').value = subj.id;
+        document.getElementById('subjTierFilter').value = 'all';
+        renderSubjects();
+      }
+    },
+    plugins:[{
+      id:'thresholdLines',
+      afterDraw(chart){
+        const {ctx, chartArea, scales} = chart;
+        const xPix = scales.x.getPixelForValue(cpcTh);
+        const yPix = scales.y.getPixelForValue(PANORAMA_ROI_TH);
+        ctx.save();
+        ctx.setLineDash([6,4]);
+        ctx.strokeStyle = '#c9c6bc';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xPix, chartArea.top); ctx.lineTo(xPix, chartArea.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(chartArea.left, yPix); ctx.lineTo(chartArea.right, yPix); ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+
+  document.querySelectorAll('.legend-toggle').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const k = el.dataset.q;
+      quadrantVisible[k] = !quadrantVisible[k];
+      el.style.opacity = quadrantVisible[k] ? '1' : '0.35';
+      const dsIndex = Object.keys(groups).indexOf(k);
+      panoramaChart.setDatasetVisibility(dsIndex, quadrantVisible[k]);
+      panoramaChart.update();
+    });
+  });
+
+  window._panoramaGroups = groups;
+  window._panoramaLegendNames = legendNames;
+}
+
+function toggleDataTable(){
+  const wrap = document.getElementById('panoramaTableWrap');
+  const isHidden = wrap.style.display === 'none';
+  wrap.style.display = isHidden ? 'block' : 'none';
+  if(isHidden && !wrap.dataset.rendered){
+    const groups = window._panoramaGroups;
+    const names = window._panoramaLegendNames;
+    wrap.innerHTML = Object.keys(groups).map(k=>{
+      const top5 = [...groups[k]].sort((a,b)=>b.cost-a.cost).slice(0,5);
+      return `<div style="margin-bottom:14px;">
+        <div style="font-size:12.5px; font-weight:700; color:${quadrantColor[k]}; margin-bottom:6px;">${names[k]}(共${groups[k].length}个,显示花费TOP5)</div>
+        <table><thead><tr><th>商品名称</th><th>CPC</th><th>ROI</th><th>花费</th></tr></thead>
+        <tbody>${top5.map(s=>`<tr><td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</td><td>¥${s.cpc}</td><td>${s.roi}</td><td>¥${s.cost.toLocaleString()}</td></tr>`).join('')}</tbody>
+        </table></div>`;
+    }).join('');
+    wrap.dataset.rendered = '1';
+  }
+}
+
+/* ---------- 渠道费率 ---------- */
+const REBASE = 6580;
+const channels = [
+  {name:'万相台', cost:77.19, checked:true, note:'自动化流水线聚合'},
+  {name:'淘客', cost:42.30, checked:true, note:'演示值,待确认数据来源'},
+  {name:'热浪', cost:18.60, checked:true, note:'演示值,待确认数据来源'},
+  {name:'品专', cost:20.40, checked:false, note:'独立产品线,默认不计入整体'},
+  {name:'内容', cost:3.12, checked:false, note:'不分品类,默认不计入整体'},
+  {name:'直播', cost:4.86, checked:false, note:'不分品类,默认不计入整体'},
+];
+const totalCostAll = channels.reduce((s,c)=>s+c.cost, 0);
+let rateChart;
+function renderRateTable(){
+  document.getElementById('rateTbody').innerHTML = channels.map((c,i)=>`
+    <tr>
+      <td><input type="checkbox" data-i="${i}" ${c.checked?'checked':''}></td>
+      <td class="ch-name">${c.name}</td>
+      <td>¥${c.cost.toFixed(2)}万</td>
+      <td>${(c.cost/totalCostAll*100).toFixed(1)}%</td>
+      <td class="rate-strong">${(c.cost/REBASE*100).toFixed(2)}%</td>
+      <td class="tag-note">${c.note}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#rateTbody input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      channels[+e.target.dataset.i].checked = e.target.checked;
+      syncRate();
+    });
+  });
+}
+function syncRate(){
+  recalcRateValue();
+  rateChart.data.datasets[0].backgroundColor = channels.map(c=>c.checked?'#dba33c':'#d8d5cc');
+  rateChart.update();
+  renderRateTable();
+}
+function recalcRateValue(){
+  const sum = channels.filter(c=>c.checked).reduce((s,c)=>s+c.cost,0);
+  document.getElementById('totalRate').textContent = (sum/REBASE*100).toFixed(2) + '%';
+}
+function renderWxtRateTable(){
+  document.getElementById('wxtRateTbody').innerHTML = catData.map(r=>
+    `<tr><td>${r.c}</td><td>¥${r.cost}万</td><td>${(r.cost/REBASE*100).toFixed(3)}%</td></tr>`
+  ).join('');
+  const wxtTotal = catData.reduce((s,r)=>s+r.cost,0);
+  document.getElementById('wxtTotalCost').textContent = '¥'+wxtTotal.toFixed(2)+'万';
+  document.getElementById('wxtTotalRate').textContent = (wxtTotal/REBASE*100).toFixed(2)+'%';
+}
+
+function initRateChart(){
+  renderWxtRateTable();
+  rateChart = new Chart(document.getElementById('rateChart'), {
+    type:'bar',
+    data:{ labels:channels.map(c=>c.name), datasets:[{ label:'花费(万)', data:channels.map(c=>c.cost), backgroundColor:channels.map(c=>c.checked?'#dba33c':'#d8d5cc') }]},
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{ y:{ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'}}, x:{ticks:{color:'#767a8a'}, grid:{display:false}} },
+      onClick:(evt, elements)=>{
+        if(elements.length===0) return;
+        const i = elements[0].index;
+        channels[i].checked = !channels[i].checked;
+        syncRate();
+      }
+    }
+  });
+  renderRateTable();
+  recalcRateValue();
+}
+
+/* ---------- AI 基础策略提示 ---------- */
+let aiChart;
+const cpcChangePercent = 19.0;
+
+function renderThresholdTable(){
+  document.getElementById('threshTbody').innerHTML = catData.map(r=>{
+    const th = categoryThresholds[r.c];
+    return `<tr><td>${r.c}</td><td>${th && th.warn!=null ? th.warn : '—'}</td><td>${th && th.pass!=null ? th.pass : '—'}</td>
+      <td class="tag-note">${th ? th.source : '暂无实际阈值数据'}</td></tr>`;
+  }).join('');
+}
+
+function initAiChart(){
+  renderThresholdTable();
+  const withTh = catData.filter(r=>categoryThresholds[r.c]);
+  aiChart = new Chart(document.getElementById('aiChart'), {
+    type:'bar',
+    data:{ labels:withTh.map(r=>r.c), datasets:[
+      { type:'bar', label:'ROI', data:withTh.map(r=>r.roi), backgroundColor:'#4f7cff' },
+      { type:'line', label:'警戒线', data:withTh.map(r=>categoryThresholds[r.c].warn), borderColor:'#d1483f', borderDash:[6,4], pointRadius:0, borderWidth:2, spanGaps:true },
+      { type:'line', label:'及格线', data:withTh.map(r=>categoryThresholds[r.c].pass), borderColor:'#dba33c', borderDash:[3,3], pointRadius:0, borderWidth:2, spanGaps:true }
+    ]},
+    options:{ plugins:{legend:{position:'top', labels:{boxWidth:10,font:{size:11}}}},
+      scales:{ y:{ticks:{color:'#767a8a'}, grid:{color:'#f2f1ec'}}, x:{ticks:{color:'#767a8a'}, grid:{display:false}} } }
+  });
+  runCheck();
+}
+
+function runCheck(){
+  const results = catData.map(r=>({...r, tierInfo: classifyTier(r.c, r.roi)}));
+  const groups = {red:[], yellow:[], green:[], mid:[], none:[]};
+  results.forEach(r=> groups[r.tierInfo.tier].push(r));
+
+  const sectionHtml = (title, arr, colorVar) => {
+    if(arr.length===0) return '';
+    return `<div style="margin-bottom:14px;">
+      <div style="font-size:12.5px; font-weight:700; color:${colorVar}; margin-bottom:6px;">${title}(${arr.length})</div>
+      ${arr.map(r=>`<div class="flag" style="background:${colorVar==='var(--red)'?'#fdeceb': colorVar==='#b8860b' ? '#fdf6e3' : colorVar==='var(--green)'?'#e9f7f0':'#f2f1ec'};">
+        <span>${r.tierInfo.tier==='red'?'🔴':r.tierInfo.tier==='yellow'?'🟡':r.tierInfo.tier==='green'?'🟢':'⚪'}</span>
+        <div><div>品类「${r.c}」ROI ${r.roi} — ${r.tierInfo.reason}</div><div class="rule-tag">花费 ¥${r.cost}万</div></div>
+      </div>`).join('')}
+    </div>`;
+  };
+
+  document.getElementById('flagList').innerHTML =
+    sectionHtml('🔴 需紧急处理', groups.red, 'var(--red)') +
+    sectionHtml('🟡 效率偏低需关注', groups.yellow, '#b8860b') +
+    sectionHtml('🟢 表现优异', groups.green, 'var(--green)') +
+    sectionHtml('未定级(暂无及格线/优秀线数据,无法细分)', groups.mid, 'var(--sub)') +
+    sectionHtml('未分类(无阈值数据)', groups.none, 'var(--sub)');
+}
+
+/* ---------- 自动化预览(演示用,未来由实时API驱动) ---------- */
+const AUTO_INTERVAL_SEC = 15; // 演示加速:代表真实的"5分钟刷新一次"
+let autoTimer = null, autoCountdown = AUTO_INTERVAL_SEC, autoOn = false;
+let lastFlagKeys = new Set();
+
+function toggleAuto(on){
+  autoOn = on;
+  document.getElementById('autoStatusText').textContent = on ? '自动检测:已开启' : '自动检测:已关闭';
+  document.getElementById('autoCountdown').style.display = on ? 'inline-block' : 'none';
+  if(on){
+    autoCountdown = AUTO_INTERVAL_SEC;
+    updateCountdownText();
+    if(autoTimer) clearInterval(autoTimer);
+    autoTimer = setInterval(autoTick, 1000);
+  } else {
+    if(autoTimer) clearInterval(autoTimer);
+  }
+}
+function updateCountdownText(){
+  document.getElementById('autoCountdown').textContent = `下次自动检测: ${autoCountdown}s`;
+}
+function autoTick(){
+  autoCountdown--;
+  if(autoCountdown <= 0){
+    runAutoCheck();
+    autoCountdown = AUTO_INTERVAL_SEC;
+  }
+  updateCountdownText();
+}
+function runAutoCheck(){
+  // 模拟真实API数据会有小幅波动,给ROI加一点随机抖动,让自动检测有意义
+  const jittered = catData.map(r=>({...r, roi: Math.max(0, r.roi * (0.9 + Math.random()*0.2))}));
+  const flags = jittered
+    .map(r=>({c:r.c, roi:r.roi, tierInfo: classifyTier(r.c, r.roi)}))
+    .filter(r=> r.tierInfo.tier==='red' || r.tierInfo.tier==='yellow')
+    .map(r=>({key:r.c, text:`品类「${r.c}」ROI ${r.roi.toFixed(2)} — ${r.tierInfo.reason}(实时抖动模拟)`}));
+
+  const now = new Date().toLocaleTimeString('zh-CN');
+  const logEl = document.getElementById('autoLog');
+  if(logEl.querySelector('.no-flag')) logEl.innerHTML = '';
+
+  const newKeys = new Set(flags.map(f=>f.key));
+  const isNewTrigger = flags.some(f=>!lastFlagKeys.has(f.key));
+
+  const summary = flags.length
+    ? `检测到 ${flags.length} 项异动:${flags.map(f=>f.text).join(';')}`
+    : '本次自动检测:各品类均在警戒线/及格线以上';
+  const item = document.createElement('div');
+  item.className = 'auto-log-item';
+  item.innerHTML = `<span class="auto-log-time">${now}</span><span>${summary}</span>`;
+  logEl.prepend(item);
+
+  // 每次刷新都弹窗,不管是不是"新"异动;没异动也弹一个"一切正常"的提醒
+  if(flags.length === 0){
+    showToast(`✅ ${now} 自动检测完成:各品类均在警戒线/及格线以上`);
+  } else if(isNewTrigger){
+    showToast(`🔔 ${now} 自动检测触发:${flags[0].text}`);
+  } else {
+    showToast(`↻ ${now} 自动检测完成:仍有 ${flags.length} 项异动(与上次相同)`);
+  }
+  lastFlagKeys = newKeys;
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 4500);
+}
+
+initOverviewCharts();
+chartsInited.overview = true;
+</script>
+</body>
+</html>
